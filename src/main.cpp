@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <algorithm>
 #include <string>
@@ -148,12 +149,15 @@ int main( int argc, char* args[] )
 	SDL_Rect spritePosRect = {0, 0, 66, 92}; //position of sprite in spritesheet, x, y, w, h
 
 	std::string imagePath = "./assets/player_walk.png"; //sprite image path
+	std::string spriteDataPath = "./assets/player_walk.txt";
 
 	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
 
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding sprite...");
 	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath))); //adds sprite to list
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite added");
+
+	spriteList[0]->populatAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
 	//---- sprite end ----//
 
 

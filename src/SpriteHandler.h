@@ -1,6 +1,9 @@
 #pragma once
 #include <string>
 #include <iostream>
+#include <vector>
+#include <memory>
+#include <fstream>
 
 #ifdef _WIN32 // compiling on windows
 #include <SDL.h>
@@ -21,6 +24,8 @@ public:
 	static void setRenderer(SDL_Renderer* renderer);
 	void drawSprite();
 	void animateSprite(int framesPerRow, int framesPerCol, int frames, bool loop);
+	void populatAnimationData(std::string filePath);
+	void getFromFile(char charToGet);
 	void moveSprite();
 	~SpriteHandler();
 
@@ -40,5 +45,8 @@ private:
 	int _currentFrame;
 	int _colFrame = 1;
 	int _rowFrame = 1;
+
+	std::string _spriteDataPath;
+	std::vector<std::unique_ptr<SDL_Rect>> spriteDataList;
 };
 

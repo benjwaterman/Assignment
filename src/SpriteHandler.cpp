@@ -60,29 +60,127 @@ void SpriteHandler::drawSprite() //renders sprite
 
 void SpriteHandler::animateSprite(int framesPerRow, int framesPerCol, int frames, bool loop)
 {
-	if (_rowFrame == framesPerRow)
-	{
-		if (_colFrame == framesPerCol)
-		{
-			_colFrame = 1;
-		}
-
-		_rowFrame = 1;
-		_colFrame++;
-	}
-
-	if (_currentFrame < frames)
-	{
-		_spritePosRect.x = _origSPR.x + (_spriteWidth * (_rowFrame - 1));
-		_spritePosRect.y = _origSPR.y + (_spriteHeight * (_colFrame - 1));
-		_currentFrame++;
-		_rowFrame++;
-	}
-
-	if (loop && _currentFrame == frames)
+	if (_currentFrame == frames)
 	{
 		_currentFrame = 1;
-		_spritePosRect.x = 0;
+	}
+
+	_spritePosRect = *spriteDataList[_currentFrame - 1];
+	_currentFrame++;
+	
+	//if (_rowFrame == framesPerRow)
+	//{
+	//	if (_colFrame == framesPerCol)
+	//	{
+	//		_colFrame = 1;
+	//	}
+
+	//	_rowFrame = 1;
+	//	_colFrame++;
+	//}
+
+	//if (_currentFrame < frames)
+	//{
+	//	_spritePosRect.x = _origSPR.x + (_spriteWidth * (_rowFrame - 1));
+	//	_spritePosRect.y = _origSPR.y + (_spriteHeight * (_colFrame - 1));
+	//	_currentFrame++;
+	//	_rowFrame++;
+	//}
+
+	//if (loop && _currentFrame == frames)
+	//{
+	//	_currentFrame = 1;
+	//	_spritePosRect.x = 0;
+	//}
+}
+
+void SpriteHandler::populatAnimationData(std::string filePath)
+{
+	_spriteDataPath = filePath;
+
+	getFromFile('x');
+	getFromFile('y');
+	getFromFile('w');
+	getFromFile('h');
+}
+
+void SpriteHandler::getFromFile(char charToGet)
+{
+	std::ifstream playerWalkJSON(_spriteDataPath);
+	std::string str;
+	int xVal;
+	int yVal;
+	int wVal;
+	int hVal;
+
+	while (std::getline(playerWalkJSON, str))
+	{
+		std::size_t pos = str.find("\"frame\""); //find line in file that has "frame" data
+		int counter = 0;
+		if (pos != std::string::npos)
+		{
+			std::string str2 = str.substr(pos); //creates substring at position found above
+
+			//finds char
+			std::string searchString;
+			searchString += "\"";
+			searchString += charToGet;
+			searchString += "\":";
+			std::cout << "search string: " << searchString << std::endl;
+
+			std::size_t pos2 = str.find(searchString);
+
+			if (pos != std::string::npos)
+			{
+				std::string strx = str.substr(pos2);
+				std::string charHolder;
+				bool canAdd = false;
+
+				for (char c : strx)
+				{
+					if (c == ',' || c == '}')
+					{
+						canAdd = false;
+						break;
+					}
+
+					if (canAdd)
+					{
+						charHolder += c;
+					}
+
+					if (c == ':')
+					{
+						canAdd = true;
+					}
+				}
+
+				std::cout << "char: " << charToGet << " " << charHolder << std::endl;
+				
+				switch (charToGet)
+				{
+				case 'x':
+					xVal = atoi(charHolder.c_str());
+					spriteDataList.push_back(std::unique_ptr<SDL_Rect>(new SDL_Rect{ xVal, 0, 0, 0 }));
+					break;
+
+				case 'y':
+					yVal = atoi(charHolder.c_str());
+					spriteDataList[counter++]->y = yVal;
+					break;
+
+				case 'w':
+					wVal = atoi(charHolder.c_str());
+					spriteDataList[counter++]->w = wVal;
+					break;
+
+				case 'h':
+					hVal = atoi(charHolder.c_str());
+					spriteDataList[counter++]->h = hVal;
+					break;
+				}
+			}
+		}
 	}
 }
 
