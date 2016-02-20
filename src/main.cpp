@@ -2,11 +2,10 @@
 #include <vector>
 #include <algorithm>
 #include <string>
-#include "TextBox.h"
-#include "SpriteHandler.h"
 #include <vector>
 #include <memory>
-
+#include "TextBox.h"
+#include "SpriteHandler.h"
 
 #ifdef _WIN32 // compiling on windows
 #include <SDL.h>
@@ -77,7 +76,10 @@ void handleInput()
 // tag::updateSimulation[]
 void updateSimulation(double simLength = 0.02) //update simulation with an amount of time to simulate for (in seconds)
 {
-  //CHANGE ME
+	for (auto const& sprite : spriteList) //loops through all TextBox objects in list and calls their draw (render) function
+	{
+		sprite->animateSprite(3, 3, 11, true);
+	}
 }
 
 void render()

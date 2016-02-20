@@ -20,7 +20,7 @@ public:
 	SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath);
 	static void setRenderer(SDL_Renderer* renderer);
 	void drawSprite();
-	void animateSprite(int frames, bool loop);
+	void animateSprite(int framesPerRow, int framesPerCol, int frames, bool loop);
 	void moveSprite();
 	~SpriteHandler();
 
@@ -28,10 +28,17 @@ private:
 	//renderer
 	static SDL_Renderer *_ren;
 
-	//text
+	//sprite
 	SDL_Surface *_surface; 
 	SDL_Texture *_tex; 
 	SDL_Rect _rect;
 	SDL_Rect _spritePosRect;
+	SDL_Rect _origSPR;
+
+	int _spriteWidth;
+	int _spriteHeight;
+	int _currentFrame;
+	int _colFrame = 1;
+	int _rowFrame = 1;
 };
 

@@ -25,6 +25,12 @@ SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string 
 	//ASSERT or check that ren is not nullptr
 	_rect = rect;
 	_spritePosRect = spritePosRect;
+	_origSPR = _spritePosRect; //store original (used for animation)
+
+	_spriteWidth = spritePosRect.w - spritePosRect.x; //works out width of sprite
+	_spriteHeight = spritePosRect.h - spritePosRect.y; //works out height of sprite
+
+	_currentFrame = 1;
 
 	_surface = IMG_Load(imagePath.c_str());
 	if (_surface == nullptr)
@@ -52,9 +58,32 @@ void SpriteHandler::drawSprite() //renders sprite
 	SDL_RenderCopy(_ren, _tex, &_spritePosRect, &_rect);
 }
 
-void SpriteHandler::animateSprite(int frames, bool loop)
+void SpriteHandler::animateSprite(int framesPerRow, int framesPerCol, int frames, bool loop)
 {
+	if (_rowFrame == framesPerRow)
+	{
+		if (_colFrame == framesPerCol)
+		{
+			_colFrame = 1;
+		}
 
+		_rowFrame = 1;
+		_colFrame++;
+	}
+
+	if (_currentFrame < frames)
+	{
+		_spritePosRect.x = _origSPR.x + (_spriteWidth * (_rowFrame - 1));
+		_spritePosRect.y = _origSPR.y + (_spriteHeight * (_colFrame - 1));
+		_currentFrame++;
+		_rowFrame++;
+	}
+
+	if (loop && _currentFrame == frames)
+	{
+		_currentFrame = 1;
+		_spritePosRect.x = 0;
+	}
 }
 
 void SpriteHandler::moveSprite()
