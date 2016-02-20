@@ -47,7 +47,7 @@ void SpriteHandler::setRenderer(SDL_Renderer* renderer)
 	_ren = renderer;
 }
 
-void SpriteHandler::drawSprite()
+void SpriteHandler::drawSprite() //renders sprite
 {
 	SDL_RenderCopy(_ren, _tex, &_spritePosRect, &_rect);
 }
