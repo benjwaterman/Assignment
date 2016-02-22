@@ -1,12 +1,14 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <algorithm>
 #include <string>
-#include "TextBox.h"
-#include "SpriteHandler.h"
 #include <vector>
 #include <memory>
+#include <chrono>
 
+#include "TextBox.h"
+#include "SpriteHandler.h"
 
 #ifdef _WIN32 // compiling on windows
 #include <SDL.h>
@@ -18,6 +20,8 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #endif
+
+typedef std::chrono::high_resolution_clock Clock;
 
 std::string exeName;
 SDL_Window *win; //pointer to the SDL_Window
@@ -77,7 +81,10 @@ void handleInput()
 // tag::updateSimulation[]
 void updateSimulation(double simLength = 0.02) //update simulation with an amount of time to simulate for (in seconds)
 {
-  //CHANGE ME
+	for (auto const& sprite : spriteList) //loops through all TextBox objects in list and calls their draw (render) function
+	{
+		sprite->animateSprite(11, 15, true); //frames, sprite fps, looping
+	}
 }
 
 void render()
@@ -146,12 +153,15 @@ int main( int argc, char* args[] )
 	SDL_Rect spritePosRect = {0, 0, 66, 92}; //position of sprite in spritesheet, x, y, w, h
 
 	std::string imagePath = "./assets/player_walk.png"; //sprite image path
+	std::string spriteDataPath = "./assets/player_walk.txt";
 
 	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
 
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding sprite...");
 	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath))); //adds sprite to list
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite added");
+
+	spriteList[0]->populatAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
 	//---- sprite end ----//
 
 
@@ -162,7 +172,7 @@ int main( int argc, char* args[] )
 		cleanExit(1);
 	}
 
-	TTF_Font* theFont = TTF_OpenFont("./assets/Sliced By Hand.ttf", 96); //font point size //Hack-Regular
+	TTF_Font* theFont = TTF_OpenFont("./assets/Hack-Regular.ttf", 96); //font point size //Hack-Regular
 	if (theFont == nullptr)
 	{
 		std::cout << "TTF_OpenFont Error: " << TTF_GetError() << std::endl;
@@ -170,8 +180,8 @@ int main( int argc, char* args[] )
 	}
 
 	SDL_Color theColour = {255, 255, 255}; //text colour
-	SDL_Rect messageRect = { 300, 300, 200, 100 }; //x pos, y pos, width, height
-	std::string theString = "hello test string";
+	SDL_Rect messageRect = { 50, 250, 300, 40 }; //x pos, y pos, width, height
+	std::string theString = "this is a test string";
 
 	TextBox::setRenderer(ren); //set TextBox renderer
 
@@ -183,13 +193,21 @@ int main( int argc, char* args[] )
 
 	while (!done) //loop until done flag is set)
 	{
+		auto time = Clock::now();
+
 		handleInput(); // this should ONLY SET VARIABLES
 
 		updateSimulation(); // this should ONLY SET VARIABLES according to simulation
 
 		render(); // this should render the world state according to VARIABLES
 
-		SDL_Delay(20); // unless vsync is on??
+		auto time2 = Clock::now();
+		auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(time2 - time).count();
+		int timeToWait = (16 - dt); //16 = 60fps, 32 = 30fps, 64 = 15fps
+		if (timeToWait < 0) //error checking, negative values cause infinite delay
+			timeToWait = 0;
+
+		SDL_Delay(timeToWait);
 	}
 
 	cleanExit(0);
