@@ -55,43 +55,33 @@ void SpriteHandler::setRenderer(SDL_Renderer* renderer)
 
 void SpriteHandler::drawSprite() //renders sprite
 {
-	SDL_RenderCopy(_ren, _tex, &_spritePosRect, &_rect);
+	SDL_RenderCopy(_ren, _tex, &_spritePosRect, new SDL_Rect{ _rect.x, _rect.y, _spritePosRect.w, _spritePosRect.h });
 }
 
-void SpriteHandler::animateSprite(int framesPerRow, int framesPerCol, int frames, bool loop)
+void SpriteHandler::animateSprite(int frames, int fps, bool loop)
 {
-	if (_currentFrame == frames)
+	int spriteFPS = 1000 / fps;
+
+	if (loop && _currentFrame == frames)
 	{
 		_currentFrame = 1;
 	}
 
-	_spritePosRect = *spriteDataList[_currentFrame - 1];
-	_currentFrame++;
-	
-	//if (_rowFrame == framesPerRow)
-	//{
-	//	if (_colFrame == framesPerCol)
-	//	{
-	//		_colFrame = 1;
-	//	}
+	dt += std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - time).count();
 
-	//	_rowFrame = 1;
-	//	_colFrame++;
-	//}
+	if (dt > spriteFPS) //64ms ~= 15fps
+	{
+		//std::cout << "data x: " << spriteDataList[_currentFrame - 1]->x << std::endl;
+		//std::cout << "data y: " << spriteDataList[_currentFrame - 1]->y << std::endl;
+		_spritePosRect = *spriteDataList[_currentFrame - 1];
+		//std::cout << "pos x: " << _spritePosRect.x << std::endl;
+		//std::cout << "pos y: " << _spritePosRect.y << std::endl;
+		_currentFrame++;
+		
+		dt = 0;
+	}
 
-	//if (_currentFrame < frames)
-	//{
-	//	_spritePosRect.x = _origSPR.x + (_spriteWidth * (_rowFrame - 1));
-	//	_spritePosRect.y = _origSPR.y + (_spriteHeight * (_colFrame - 1));
-	//	_currentFrame++;
-	//	_rowFrame++;
-	//}
-
-	//if (loop && _currentFrame == frames)
-	//{
-	//	_currentFrame = 1;
-	//	_spritePosRect.x = 0;
-	//}
+	time = Clock::now();
 }
 
 void SpriteHandler::populatAnimationData(std::string filePath)
@@ -112,11 +102,12 @@ void SpriteHandler::getFromFile(char charToGet)
 	int yVal;
 	int wVal;
 	int hVal;
+	int counter = 0;
 
 	while (std::getline(playerWalkJSON, str))
 	{
 		std::size_t pos = str.find("\"frame\""); //find line in file that has "frame" data
-		int counter = 0;
+		
 		if (pos != std::string::npos)
 		{
 			std::string str2 = str.substr(pos); //creates substring at position found above
@@ -126,7 +117,7 @@ void SpriteHandler::getFromFile(char charToGet)
 			searchString += "\"";
 			searchString += charToGet;
 			searchString += "\":";
-			std::cout << "search string: " << searchString << std::endl;
+			//std::cout << "search string: " << searchString << std::endl;
 
 			std::size_t pos2 = str.find(searchString);
 
@@ -155,7 +146,7 @@ void SpriteHandler::getFromFile(char charToGet)
 					}
 				}
 
-				std::cout << "char: " << charToGet << " " << charHolder << std::endl;
+				//std::cout << "char: " << charToGet << " " << charHolder << std::endl;
 				
 				switch (charToGet)
 				{
