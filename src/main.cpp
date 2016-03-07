@@ -1,25 +1,4 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <algorithm>
-#include <string>
-#include <vector>
-#include <memory>
-#include <chrono>
-
-#include "TextBox.h"
-#include "SpriteHandler.h"
-
-#ifdef _WIN32 // compiling on windows
-#include <SDL.h>
-#include <SDL_image.h>
-#include <SDL_ttf.h>
-
-#else // NOT compiling on windows
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
-#include <SDL2/SDL_ttf.h>
-#endif
+#include "Common.h"
 
 typedef std::chrono::high_resolution_clock Clock;
 
@@ -28,12 +7,19 @@ SDL_Window *win; //pointer to the SDL_Window
 SDL_Renderer *ren; //pointer to the SDL_Renderer
 
 //image
-std::vector<std::unique_ptr<SpriteHandler>> spriteList; //list of spritehandler objects
+std::vector<std::unique_ptr<SpriteHandler>> spriteList; //list of character spritehandler objects
+std::vector<std::unique_ptr<SpriteHandler>> levelSpriteList; //list of level spritehandler objects 
 
 //text
 std::vector<std::unique_ptr<TextBox>> textList; //list of textbox objects
 
 bool done = false;
+
+//player
+bool movingLeft = false;
+bool movingRight = false;
+
+float playerSpeed = 10.0f;
 
 void handleInput()
 {
@@ -68,10 +54,30 @@ void handleInput()
 			if (!event.key.repeat)
 				switch (event.key.keysym.sym)
 				{
-					//hit escape to exit
-					case SDLK_ESCAPE: 
-						done = true;
+				case SDLK_ESCAPE: 
+					done = true;
+
+				case SDLK_d:
+					movingRight = true;
+					break;
+
+				case SDLK_a:
+					movingLeft = true;
+					break;
 				}
+			break;
+
+		case SDL_KEYUP:
+			switch (event.key.keysym.sym)
+			{
+			case SDLK_d:
+				movingRight = false;
+				break;
+
+			case SDLK_a:
+				movingLeft = false;
+				break;
+			}
 			break;
 		}
 	}
@@ -81,10 +87,26 @@ void handleInput()
 // tag::updateSimulation[]
 void updateSimulation(double simLength = 0.02) //update simulation with an amount of time to simulate for (in seconds)
 {
-	for (auto const& sprite : spriteList) //loops through all TextBox objects in list and calls their draw (render) function
+	for (auto const& sprite : spriteList)
 	{
-		sprite->animateSprite(11, 15, true); //frames, sprite fps, looping
+		sprite->gravity();
 	}
+
+	spriteList[0]->animateSprite(6, 5, 30, true); //frames, sprite fps, looping
+
+
+	if (movingLeft)
+	{
+		spriteList[0]->moveSprite(-playerSpeed , 0);
+	}
+
+	if (movingRight)
+	{
+		spriteList[0]->moveSprite(playerSpeed, 0);
+	}
+
+	if (!movingRight && !movingLeft) //player not moving
+		spriteList[0]->setIdle();
 }
 
 void render()
@@ -128,7 +150,7 @@ int main( int argc, char* args[] )
 	std::cout << "SDL initialised OK!\n";
 
 	//create window
-	win = SDL_CreateWindow("My Game", 100, 100, 600, 600, SDL_WINDOW_SHOWN);
+	win = SDL_CreateWindow("My Game", 100, 100, 1400, 1400, SDL_WINDOW_SHOWN);
 
 	//error handling
 	if (win == nullptr)
@@ -147,6 +169,7 @@ int main( int argc, char* args[] )
 
 
 	//---- sprite begin ----//
+	//---- player 1 begin ----//
 	SDL_Surface *surface; //pointer to the SDL_Surface
 	SDL_Texture *tex; //pointer to the SDL_Texture
 	SDL_Rect rect = {150, 150, 66, 92}; //size and position of sprite, x, y, w, h
@@ -158,10 +181,35 @@ int main( int argc, char* args[] )
 	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
 
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding sprite...");
-	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath))); //adds sprite to list
+	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true))); //adds sprite to list
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite added");
 
 	spriteList[0]->populatAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
+
+	//create idle
+	imagePath = "./assets/player_idle.png";
+
+	rect = { 0, 0, 66, 92 }; 
+	spritePosRect = { 0, 0, 66, 92 }; 
+
+	spriteList[0]->createIdleSprite(rect, spritePosRect, imagePath);
+	//---- player 1 end ----//
+
+	//---- player 2 begin ----//
+	
+	//---- player 2 end ----//
+
+	//---- ground begin ----//
+	imagePath = "./assets/grassMid.png";
+
+	rect = { 0, 0, 70, 70 };
+	spritePosRect = { 0, 0, 70, 70 };
+	//spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false)));
+
+	//LevelBuilder level01;
+	//levelSpriteList = level01.getLevel(imagePath);
+	
+	//---- ground end ----//
 	//---- sprite end ----//
 
 
@@ -181,7 +229,7 @@ int main( int argc, char* args[] )
 
 	SDL_Color theColour = {255, 255, 255}; //text colour
 	SDL_Rect messageRect = { 50, 250, 300, 40 }; //x pos, y pos, width, height
-	std::string theString = "this is a test string";
+	std::string theString = "this is chuckie egg";
 
 	TextBox::setRenderer(ren); //set TextBox renderer
 
