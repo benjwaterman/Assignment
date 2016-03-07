@@ -1,5 +1,16 @@
 #include "SpriteHandler.h"
 
+#ifdef _WIN32 // compiling on windows
+#include <SDL.h>
+#include <SDL_image.h>
+#include <SDL_ttf.h>
+
+#else // NOT compiling on windows
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
+#endif
+
 SDL_Renderer* SpriteHandler::_ren = nullptr;
 
 SpriteHandler::SpriteHandler()
@@ -7,16 +18,17 @@ SpriteHandler::SpriteHandler()
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "(This should never be called) Sprite Constructed(%p)", this);
 }
 
-SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath, bool enableGravity)
+SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath)
 {
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite Constructed(%p)", this);
 
 	//ASSERT or check that ren is not nullptr
-	_posRect = rect;
-	_texPosRect = spritePosRect;
-	_origSPR = _texPosRect; //store original (used for animation)
-	_flip = SDL_FLIP_NONE;
-	_enableGravity = enableGravity;
+	_rect = rect;
+	_spritePosRect = spritePosRect;
+	_origSPR = _spritePosRect; //store original (used for animation)
+
+	_spriteWidth = spritePosRect.w - spritePosRect.x; //works out width of sprite
+	_spriteHeight = spritePosRect.h - spritePosRect.y; //works out height of sprite
 
 	_currentFrame = 1;
 
@@ -27,9 +39,9 @@ SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string 
 		//cleanExit(1);
 	}
 
-	_texMove = SDL_CreateTextureFromSurface(_ren, _surface);
+	_tex = SDL_CreateTextureFromSurface(_ren, _surface);
 	SDL_FreeSurface(_surface);
-	if (_texMove == nullptr)
+	if (_tex == nullptr)
 	{
 		std::cout << "SDL_CreateTextureFromSurface Error: " << SDL_GetError() << std::endl;
 		//cleanExit(1);
@@ -43,36 +55,30 @@ void SpriteHandler::setRenderer(SDL_Renderer* renderer)
 
 void SpriteHandler::drawSprite() //renders sprite
 {
-	if(!_spriteMoving)
-		SDL_RenderCopyEx(_ren, _texIdle, &_texPosRectIdle, &_posRect, 0, 0, _flip);
-
-	if(_spriteMoving)
-		SDL_RenderCopyEx(_ren, _texMove, &_texPosRect, new SDL_Rect{ _posRect.x, _posRect.y, _texPosRect.w, _texPosRect.h }, 0, 0, _flip);
+	SDL_RenderCopy(_ren, _tex, &_spritePosRect, new SDL_Rect{ _rect.x, _rect.y, _spritePosRect.w, _spritePosRect.h });
 }
 
-void SpriteHandler::animateSprite(int startFrame, int frames, int fps, bool loop)
+void SpriteHandler::animateSprite(int frames, int fps, bool loop)
 {
-	startFrame--;
-	int spriteFPS; //sprite should not play at the same fps as game runs, so this limits the the fps the sprite is running at
-	if (fps > 0)
-		spriteFPS = 1000 / fps;
-
-	else
-		spriteFPS = 0;
+	int spriteFPS = 1000 / fps;
 
 	if (loop && _currentFrame == frames)
 	{
 		_currentFrame = 1;
 	}
 
-	_dt += std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - time).count();
+	dt += std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - time).count();
 
-	if (_dt > spriteFPS) //64ms ~= 15fps
+	if (dt > spriteFPS) //64ms ~= 15fps
 	{
-		_texPosRect = *spriteDataList[_currentFrame + startFrame - 1];
+		//std::cout << "data x: " << spriteDataList[_currentFrame - 1]->x << std::endl;
+		//std::cout << "data y: " << spriteDataList[_currentFrame - 1]->y << std::endl;
+		_spritePosRect = *spriteDataList[_currentFrame - 1];
+		//std::cout << "pos x: " << _spritePosRect.x << std::endl;
+		//std::cout << "pos y: " << _spritePosRect.y << std::endl;
 		_currentFrame++;
 		
-		_dt = 0;
+		dt = 0;
 	}
 
 	time = Clock::now();
@@ -169,63 +175,15 @@ void SpriteHandler::getFromFile(char charToGet)
 	}
 }
 
-void SpriteHandler::moveSprite(float moveX, float moveY)
+void SpriteHandler::moveSprite()
 {
-	_spriteMoving = true;
-	_posRect.x += moveX;
-	_posRect.y += moveY;
 
-	//makes the sprite face the correct way when moving
-	if (moveX > 0)
-	{
-		_flip = SDL_FLIP_NONE;
-	}
-
-	else if (moveX < 0)
-	{
-		_flip = SDL_FLIP_HORIZONTAL;
-	}
-}
-
-void SpriteHandler::createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath)
-{
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Idle sprite Constructed(%p)", this);
-
-	//ASSERT or check that ren is not nullptr
-	_texPosRectIdle = spritePosRect;
-
-	_surface = IMG_Load(imagePath.c_str());
-	if (_surface == nullptr)
-	{
-		std::cout << "SDL IMG_Load Error: " << SDL_GetError() << std::endl;
-		//cleanExit(1);
-	}
-
-	_texIdle = SDL_CreateTextureFromSurface(_ren, _surface);
-	SDL_FreeSurface(_surface);
-
-	if (_texMove == nullptr)
-	{
-		std::cout << "SDL_CreateTextureFromSurface Error: " << SDL_GetError() << std::endl;
-		//cleanExit(1);
-	}
-}
-
-void SpriteHandler::setIdle()
-{
-	_spriteMoving = false;
-}
-
-void SpriteHandler::gravity()
-{
-	if (_posRect.y < 500 && _enableGravity)
-		moveSprite(0, 10);
 }
 
 SpriteHandler::~SpriteHandler()
 {
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite Destructed(%p)", this);
 
-	if (_texMove != nullptr)
-		SDL_DestroyTexture(_texMove);
+	if (_tex != nullptr) 
+		SDL_DestroyTexture(_tex);
 }
