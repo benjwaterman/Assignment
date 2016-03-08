@@ -1,25 +1,30 @@
 #include "Common.h"
+#include "TextBox.h"
+#include "SpriteHandler.h"
+#include "LevelBuilder.h"
 
 typedef std::chrono::high_resolution_clock Clock;
 
 std::string exeName;
 SDL_Window *win; //pointer to the SDL_Window
 SDL_Renderer *ren; //pointer to the SDL_Renderer
+bool done = false;
 
-//image
+//sprites
 std::vector<std::unique_ptr<SpriteHandler>> spriteList; //list of character spritehandler objects
 std::vector<std::unique_ptr<SpriteHandler>> levelSpriteList; //list of level spritehandler objects 
 
 //text
 std::vector<std::unique_ptr<TextBox>> textList; //list of textbox objects
 
-bool done = false;
-
 //player
 bool movingLeft = false;
 bool movingRight = false;
-
 float playerSpeed = 10.0f;
+
+//sound
+Mix_Music *bgMusic;
+Mix_Chunk *walkSound;
 
 void handleInput()
 {
@@ -95,18 +100,25 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 	spriteList[0]->animateSprite(6, 5, 30, true); //frames, sprite fps, looping
 
 
-	if (movingLeft)
+	if (movingLeft && !movingRight)
 	{
 		spriteList[0]->moveSprite(-playerSpeed , 0);
+		if (Mix_Playing(1) != 1)
+			Mix_PlayChannel(1, walkSound, 0);
 	}
 
-	if (movingRight)
+	if (movingRight && !movingLeft)
 	{
 		spriteList[0]->moveSprite(playerSpeed, 0);
+		if(Mix_Playing(1) != 1)
+			Mix_PlayChannel(1, walkSound, 0);
 	}
 
-	if (!movingRight && !movingLeft) //player not moving
+	if (!movingRight && !movingLeft || movingLeft && movingRight) //player not moving
+	{
 		spriteList[0]->setIdle();
+		Mix_HaltChannel(1); //stops sound playing when stopping moving, in case half way through sound
+	}
 }
 
 void render()
@@ -132,11 +144,31 @@ void render()
 
 void cleanExit(int returnValue)
 {
+	if (returnValue == 1)//pauses before exit so error can be read in console
+		std::cin;
+
 	//if (tex != nullptr) SDL_DestroyTexture(tex);
 	if (ren != nullptr) SDL_DestroyRenderer(ren);
 	if (win != nullptr) SDL_DestroyWindow(win);
+
+	Mix_FreeChunk(walkSound);
+	Mix_FreeMusic(bgMusic);
+	
+	Mix_Quit();
 	SDL_Quit();
+
 	exit(returnValue);
+}
+
+void fpsLimiter(std::chrono::steady_clock::time_point time) //limits to 60fps
+{
+	auto time2 = Clock::now();
+	auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(time2 - time).count();
+	int timeToWait = (16 - dt); //16 = 60fps, 32 = 30fps, 64 = 15fps
+	if (timeToWait < 0) //error checking, negative values cause infinite delay
+		timeToWait = 0;
+
+	SDL_Delay(timeToWait);
 }
 
 // based on http://www.willusher.io/sdl2%20tutorials/2013/08/17/lesson-1-hello-world/
@@ -148,6 +180,13 @@ int main( int argc, char* args[] )
 		cleanExit(1);
 	}
 	std::cout << "SDL initialised OK!\n";
+
+	if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
+	{
+		std::cout << "SDL_Mixer Error: " << Mix_GetError() << std::endl;
+		cleanExit(1);
+	}
+	std::cout << "SDL_Mixer initialised OK!\n";
 
 	//create window
 	win = SDL_CreateWindow("My Game", 100, 100, 1400, 1400, SDL_WINDOW_SHOWN);
@@ -239,6 +278,33 @@ int main( int argc, char* args[] )
 	//---- text end ----//
 
 
+	//---- sound begin ----//
+	//load background music
+	bgMusic = Mix_LoadMUS("./assets/background_music.ogg");
+	if (bgMusic == NULL)
+	{
+		std::cout << "Background music SDL_mixer Error: " << Mix_GetError() << std::endl;
+		cleanExit(1);
+	}
+
+	//load other sounds
+	walkSound = Mix_LoadWAV("./assets/player_footstep.ogg");
+	if (walkSound == NULL)
+	{
+		std::cout << "Walk sound SDL_mixer Error: " << Mix_GetError() << std::endl;
+		cleanExit(1);
+	}
+
+	if (Mix_PlayingMusic() == 0)
+	{
+		//Play the music
+		Mix_PlayMusic(bgMusic, -1);
+	}
+
+	Mix_VolumeChunk(walkSound, 50);
+	//---- sound end ----//
+
+
 	while (!done) //loop until done flag is set)
 	{
 		auto time = Clock::now();
@@ -249,13 +315,7 @@ int main( int argc, char* args[] )
 
 		render(); // this should render the world state according to VARIABLES
 
-		auto time2 = Clock::now();
-		auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(time2 - time).count();
-		int timeToWait = (16 - dt); //16 = 60fps, 32 = 30fps, 64 = 15fps
-		if (timeToWait < 0) //error checking, negative values cause infinite delay
-			timeToWait = 0;
-
-		SDL_Delay(timeToWait);
+		fpsLimiter(time); //always call after all other functions
 	}
 
 	cleanExit(0);
