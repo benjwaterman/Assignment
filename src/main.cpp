@@ -1,4 +1,7 @@
 #include "Common.h"
+#include "TextBox.h"
+#include "SpriteHandler.h"
+#include "LevelBuilder.h"
 
 typedef std::chrono::high_resolution_clock Clock;
 
