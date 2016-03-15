@@ -20,7 +20,7 @@ std::vector<std::unique_ptr<TextBox>> textList; //list of textbox objects
 //player
 bool movingLeft = false;
 bool movingRight = false;
-float playerSpeed = 10.0f;
+float playerSpeed = 5.0f;
 
 //sound
 Mix_Music *bgMusic;
@@ -92,29 +92,56 @@ void handleInput()
 // tag::updateSimulation[]
 void updateSimulation(double simLength = 0.02) //update simulation with an amount of time to simulate for (in seconds)
 {
-	for (auto const& sprite : spriteList)
+	bool canFall = true;
+
+	for (int i = 0; i < (int)levelSpriteList.size(); i++)
 	{
-		sprite->gravity();
+		int playerSpriteX = spriteList[0]->getBoxCollider().x;
+		int playerSpriteY = spriteList[0]->getBoxCollider().y;
+		int playerSpriteW = spriteList[0]->getBoxCollider().w;
+		int playerSpriteH = spriteList[0]->getBoxCollider().h;
+
+		int levelSpriteX = levelSpriteList[i]->getBoxCollider().x;
+		int levelSpriteY = levelSpriteList[i]->getBoxCollider().y;
+		int levelSpriteW = levelSpriteList[i]->getBoxCollider().w;
+		int levelSpriteH = levelSpriteList[i]->getBoxCollider().h;
+
+		playerSpriteX += 2;
+		playerSpriteW -= 2;
+
+		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) || (levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
+		{
+			if (playerSpriteY + playerSpriteH >= levelSpriteY && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
+			{
+				canFall = false;
+			}
+		}
 	}
+
+	if(canFall)
+		for (auto const& sprite : spriteList) //apply gravity to all sprites (will only actually apply gravity if it is enabled on sprite creation)
+			sprite->gravity();
 
 	spriteList[0]->animateSprite(6, 5, 30, true); //frames, sprite fps, looping
 
-
-	if (movingLeft && !movingRight)
+	if (!canFall)
 	{
-		spriteList[0]->moveSprite(-playerSpeed , 0);
-		if (Mix_Playing(1) != 1)
-			Mix_PlayChannel(1, walkSound, 0);
+		if (movingLeft && !movingRight) //moving left
+		{
+			spriteList[0]->moveSprite(-playerSpeed, 0);
+			if (Mix_Playing(1) != 1)
+				Mix_PlayChannel(1, walkSound, 0);
+		}
+
+		if (movingRight && !movingLeft) //moving right
+		{
+			spriteList[0]->moveSprite(playerSpeed, 0);
+			if (Mix_Playing(1) != 1)
+				Mix_PlayChannel(1, walkSound, 0);
+		}
 	}
 
-	if (movingRight && !movingLeft)
-	{
-		spriteList[0]->moveSprite(playerSpeed, 0);
-		if(Mix_Playing(1) != 1)
-			Mix_PlayChannel(1, walkSound, 0);
-	}
-
-	if (!movingRight && !movingLeft || movingLeft && movingRight) //player not moving
+	if (!movingRight && !movingLeft || movingLeft && movingRight || canFall) //player not moving
 	{
 		spriteList[0]->setIdle();
 		Mix_HaltChannel(1); //stops sound playing when stopping moving, in case half way through sound
@@ -127,6 +154,12 @@ void render()
 	SDL_RenderClear(ren);
 
 	//Draw the sprite
+	for (auto const& sprite : levelSpriteList) //loops through all TextBox objects in list and calls their draw (render) function
+	{
+		sprite->drawSprite();
+	}
+
+	//Draw the level
 	for (auto const& sprite : spriteList) //loops through all TextBox objects in list and calls their draw (render) function
 	{
 		sprite->drawSprite();
@@ -163,7 +196,7 @@ void cleanExit(int returnValue)
 void fpsLimiter(std::chrono::steady_clock::time_point time) //limits to 60fps
 {
 	auto time2 = Clock::now();
-	auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(time2 - time).count();
+	auto dt = (int) std::chrono::duration_cast<std::chrono::milliseconds>(time2 - time).count();
 	int timeToWait = (16 - dt); //16 = 60fps, 32 = 30fps, 64 = 15fps
 	if (timeToWait < 0) //error checking, negative values cause infinite delay
 		timeToWait = 0;
@@ -189,7 +222,7 @@ int main( int argc, char* args[] )
 	std::cout << "SDL_Mixer initialised OK!\n";
 
 	//create window
-	win = SDL_CreateWindow("My Game", 100, 100, 1400, 1400, SDL_WINDOW_SHOWN);
+	win = SDL_CreateWindow("My Game", 100, 100, 700, 945, SDL_WINDOW_SHOWN);
 
 	//error handling
 	if (win == nullptr)
@@ -209,8 +242,8 @@ int main( int argc, char* args[] )
 
 	//---- sprite begin ----//
 	//---- player 1 begin ----//
-	SDL_Surface *surface; //pointer to the SDL_Surface
-	SDL_Texture *tex; //pointer to the SDL_Texture
+	//SDL_Surface *surface; //pointer to the SDL_Surface
+	//SDL_Texture *tex; //pointer to the SDL_Texture
 	SDL_Rect rect = {150, 150, 66, 92}; //size and position of sprite, x, y, w, h
 	SDL_Rect spritePosRect = {0, 0, 66, 92}; //position of sprite in spritesheet, x, y, w, h
 
@@ -220,7 +253,7 @@ int main( int argc, char* args[] )
 	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
 
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding sprite...");
-	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true))); //adds sprite to list
+	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, true, 0.5))); //adds sprite to list
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite added");
 
 	spriteList[0]->populatAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
@@ -245,8 +278,9 @@ int main( int argc, char* args[] )
 	spritePosRect = { 0, 0, 70, 70 };
 	//spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false)));
 
-	//LevelBuilder level01;
-	//levelSpriteList = level01.getLevel(imagePath);
+	LevelBuilder level01;
+	std::string levelPath = "./assets/level01.txt";
+	levelSpriteList = level01.getLevel(levelPath);
 	
 	//---- ground end ----//
 	//---- sprite end ----//
@@ -307,7 +341,7 @@ int main( int argc, char* args[] )
 
 	while (!done) //loop until done flag is set)
 	{
-		auto time = Clock::now();
+		auto time = Clock::now(); //used for FPS limiter
 
 		handleInput(); // this should ONLY SET VARIABLES
 

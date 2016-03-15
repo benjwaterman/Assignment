@@ -7,7 +7,7 @@ class SpriteHandler
 {
 public:
 	SpriteHandler();	
-	SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath, bool enableGravity);
+	SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath, bool enableGravity, bool addCollider, float scale);
 	static void setRenderer(SDL_Renderer* renderer);
 	void drawSprite();
 	void animateSprite(int startFrame, int frames, int fps, bool loop);
@@ -17,6 +17,8 @@ public:
 	void createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath);
 	void setIdle();
 	void gravity();
+	void addBoxCollider();
+	SDL_Rect getBoxCollider();
 	~SpriteHandler();
 
 private:
@@ -31,6 +33,7 @@ private:
 	SDL_Rect _texPosRect;
 	SDL_Rect _texPosRectIdle;
 	SDL_Rect _origSPR;
+	SDL_Rect _boxCollider;
 	SDL_RendererFlip _flip;
 
 	int _spriteWidth;
@@ -38,15 +41,17 @@ private:
 	int _currentFrame;
 	int _colFrame = 1;
 	int _rowFrame = 1;
+	int _scaleFactor;
 
 	bool _spriteMoving;
 	bool _enableGravity;
+	bool _enableCollider;
 
 	double _dt = 0; //delta time
 
 	std::chrono::steady_clock::time_point time;
 
 	std::string _spriteDataPath;
-	std::vector<std::unique_ptr<SDL_Rect>> spriteDataList;
+	std::vector<SDL_Rect> spriteDataList;
 };
 

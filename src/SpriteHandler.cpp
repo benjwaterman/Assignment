@@ -7,7 +7,7 @@ SpriteHandler::SpriteHandler()
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "(This should never be called) Sprite Constructed(%p)", this);
 }
 
-SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath, bool enableGravity)
+SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath, bool enableGravity, bool addCollider, float scale)
 {
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite Constructed(%p)", this);
 
@@ -17,6 +17,13 @@ SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string 
 	_origSPR = _texPosRect; //store original (used for animation)
 	_flip = SDL_FLIP_NONE;
 	_enableGravity = enableGravity;
+	_enableCollider = addCollider;
+	scale = 1 / scale;
+	_scaleFactor = scale;
+
+	//for scaling purposes
+	_posRect.h /= _scaleFactor;
+	_posRect.w /= _scaleFactor;
 
 	_currentFrame = 1;
 
@@ -34,6 +41,9 @@ SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string 
 		std::cout << "SDL_CreateTextureFromSurface Error: " << SDL_GetError() << std::endl;
 		//cleanExit(1);
 	}
+
+	if (_enableCollider)
+		addBoxCollider();
 }
 
 void SpriteHandler::setRenderer(SDL_Renderer* renderer)
@@ -43,11 +53,16 @@ void SpriteHandler::setRenderer(SDL_Renderer* renderer)
 
 void SpriteHandler::drawSprite() //renders sprite
 {
+	if (_enableCollider)
+		addBoxCollider();
+
 	if(!_spriteMoving)
 		SDL_RenderCopyEx(_ren, _texIdle, &_texPosRectIdle, &_posRect, 0, 0, _flip);
 
+	SDL_Rect posRectMove = SDL_Rect{ _posRect.x, _posRect.y, _texPosRect.w / _scaleFactor, _texPosRect.h / _scaleFactor };
+
 	if(_spriteMoving)
-		SDL_RenderCopyEx(_ren, _texMove, &_texPosRect, new SDL_Rect{ _posRect.x, _posRect.y, _texPosRect.w, _texPosRect.h }, 0, 0, _flip);
+		SDL_RenderCopyEx(_ren, _texMove, &_texPosRect, &posRectMove, 0, 0, _flip);
 }
 
 void SpriteHandler::animateSprite(int startFrame, int frames, int fps, bool loop)
@@ -69,7 +84,7 @@ void SpriteHandler::animateSprite(int startFrame, int frames, int fps, bool loop
 
 	if (_dt > spriteFPS) //64ms ~= 15fps
 	{
-		_texPosRect = *spriteDataList[_currentFrame + startFrame - 1];
+		_texPosRect = spriteDataList[_currentFrame + startFrame - 1];
 		_currentFrame++;
 		
 		_dt = 0;
@@ -146,22 +161,22 @@ void SpriteHandler::getFromFile(char charToGet)
 				{
 				case 'x':
 					xVal = atoi(charHolder.c_str());
-					spriteDataList.push_back(std::unique_ptr<SDL_Rect>(new SDL_Rect{ xVal, 0, 0, 0 }));
+					spriteDataList.push_back(SDL_Rect{ xVal, 0, 0, 0 });
 					break;
 
 				case 'y':
 					yVal = atoi(charHolder.c_str());
-					spriteDataList[counter++]->y = yVal;
+					spriteDataList[counter++].y = yVal;
 					break;
 
 				case 'w':
 					wVal = atoi(charHolder.c_str());
-					spriteDataList[counter++]->w = wVal;
+					spriteDataList[counter++].w = wVal;
 					break;
 
 				case 'h':
 					hVal = atoi(charHolder.c_str());
-					spriteDataList[counter++]->h = hVal;
+					spriteDataList[counter++].h = hVal;
 					break;
 				}
 			}
@@ -169,7 +184,7 @@ void SpriteHandler::getFromFile(char charToGet)
 	}
 }
 
-void SpriteHandler::moveSprite(float moveX, float moveY)
+void SpriteHandler::moveSprite(float moveX, float moveY) //moves sprite and flips it according to direction of movement, assuming sprites starts facing right
 {
 	_spriteMoving = true;
 	_posRect.x += moveX;
@@ -218,8 +233,18 @@ void SpriteHandler::setIdle()
 
 void SpriteHandler::gravity()
 {
-	if (_posRect.y < 500 && _enableGravity)
-		moveSprite(0, 10);
+	if (_posRect.y < 900 && _enableGravity)
+		moveSprite(0, 5);
+}
+
+void SpriteHandler::addBoxCollider()
+{
+	_boxCollider = { _posRect.x, _posRect.y, _posRect.w, _posRect.h };
+}
+
+SDL_Rect SpriteHandler::getBoxCollider()
+{
+	return _boxCollider;
 }
 
 SpriteHandler::~SpriteHandler()
@@ -227,5 +252,8 @@ SpriteHandler::~SpriteHandler()
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite Destructed(%p)", this);
 
 	if (_texMove != nullptr)
+		SDL_DestroyTexture(_texMove);
+
+	if (_texIdle != nullptr)
 		SDL_DestroyTexture(_texMove);
 }

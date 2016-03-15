@@ -38,4 +38,7 @@ TextBox::~TextBox()
 
 	if (_messageTexture != nullptr) 
 		SDL_DestroyTexture(_messageTexture);
+
+	if (_messageSurface != nullptr)
+		SDL_FreeSurface(_messageSurface);
 }
