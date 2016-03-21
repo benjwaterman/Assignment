@@ -7,7 +7,7 @@ SpriteHandler::SpriteHandler()
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "(This should never be called) Sprite Constructed(%p)", this);
 }
 
-SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath, bool enableGravity, bool addCollider, float scale)
+SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath, bool enableGravity, int colliderType, float scale)
 {
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite Constructed(%p)", this);
 
@@ -17,7 +17,12 @@ SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string 
 	_origSPR = _texPosRect; //store original (used for animation)
 	_flip = SDL_FLIP_NONE;
 	_enableGravity = enableGravity;
-	_enableCollider = addCollider;
+	
+	if (colliderType != 0)
+	{
+		_enableCollider = true;
+		_colliderType = colliderType;
+	}
 	scale = 1 / scale;
 	_scaleFactor = scale;
 
@@ -240,6 +245,15 @@ void SpriteHandler::gravity()
 void SpriteHandler::addBoxCollider()
 {
 	_boxCollider = { _posRect.x, _posRect.y, _posRect.w, _posRect.h };
+}
+
+int SpriteHandler::getColliderType()
+{
+	if (_colliderType != 0)
+		return _colliderType;
+
+	else
+		return 0;
 }
 
 SDL_Rect SpriteHandler::getBoxCollider()

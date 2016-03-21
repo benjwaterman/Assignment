@@ -17,6 +17,9 @@ private:
 	//level
 	//std::vector<SpriteHandler> levelSpriteList;
 	std::string grassImagePath = "./assets/grassMid.png";
+	std::string ladderImagePath = "./assets/ladderMid.png";
+	std::string mushroomImagePath = "./assets/mushroomRed.png";
+	std::string plantImagePath = "./assets/plantPurple.png";
 
 	int _column;
 	int _row;

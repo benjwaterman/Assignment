@@ -7,7 +7,7 @@ class SpriteHandler
 {
 public:
 	SpriteHandler();	
-	SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath, bool enableGravity, bool addCollider, float scale);
+	SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath, bool enableGravity, int colliderType, float scale);
 	static void setRenderer(SDL_Renderer* renderer);
 	void drawSprite();
 	void animateSprite(int startFrame, int frames, int fps, bool loop);
@@ -18,6 +18,7 @@ public:
 	void setIdle();
 	void gravity();
 	void addBoxCollider();
+	int getColliderType();
 	SDL_Rect getBoxCollider();
 	~SpriteHandler();
 
@@ -42,6 +43,7 @@ private:
 	int _colFrame = 1;
 	int _rowFrame = 1;
 	int _scaleFactor;
+	int _colliderType; // 1 = solid, eg cant walk through; 2 = ladders, 3 = collectables
 
 	bool _spriteMoving;
 	bool _enableGravity;

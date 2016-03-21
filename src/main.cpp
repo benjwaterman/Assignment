@@ -26,6 +26,14 @@ float playerSpeed = 5.0f;
 Mix_Music *bgMusic;
 Mix_Chunk *walkSound;
 
+//score
+std::chrono::steady_clock::time_point currentTime;
+std::chrono::steady_clock::time_point previousTime;
+float deltaTime;
+float deltaTime2;
+int timeScore = 900;
+int bonusScore = 1000;
+
 void handleInput()
 {
 	//Event-based input handling
@@ -94,7 +102,7 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 {
 	bool canFall = true;
 
-	for (int i = 0; i < (int)levelSpriteList.size(); i++)
+	for (int i = 0; i < (int)levelSpriteList.size(); i++) //check player collider with every other collider in level
 	{
 		int playerSpriteX = spriteList[0]->getBoxCollider().x;
 		int playerSpriteY = spriteList[0]->getBoxCollider().y;
@@ -106,14 +114,33 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		int levelSpriteW = levelSpriteList[i]->getBoxCollider().w;
 		int levelSpriteH = levelSpriteList[i]->getBoxCollider().h;
 
-		playerSpriteX += 2;
+		int colliderType = levelSpriteList[i]->getColliderType();
+
+		playerSpriteX += 2; //to ensure player falls through gaps (default player sprite is 2 pixels wider than the gaps between terrain)
 		playerSpriteW -= 2;
 
 		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) || (levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
 		{
 			if (playerSpriteY + playerSpriteH >= levelSpriteY && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
 			{
-				canFall = false;
+				switch (colliderType)
+				{
+				case 0:
+					canFall = false;
+					break;
+				case 1: //solid
+					canFall = false;
+					break;
+				case 2://ladder
+					canFall = false;
+					break;
+				case 3://mushroom
+					break;
+				case 4://plant
+					break;
+				default:
+					break;
+				}
 			}
 		}
 	}
@@ -146,6 +173,31 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		spriteList[0]->setIdle();
 		Mix_HaltChannel(1); //stops sound playing when stopping moving, in case half way through sound
 	}
+
+	//time decreases by 1 for every 0.5 second starting at 900, bonus goes down by 10 for every 5 time that goes down starting at 1000
+	
+	currentTime = Clock::now();
+	deltaTime += std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - previousTime).count();
+	deltaTime2 += std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - previousTime).count();
+
+	if (deltaTime >= 500) //0.5 of a second
+	{
+		timeScore -= 1;
+		deltaTime = 0;
+	}
+
+	if (deltaTime2 >= 1000) //0.5 of a second
+	{
+		bonusScore -= 10;
+		deltaTime2 = 0;
+	}
+
+	std::string timeScoreText = std::to_string(timeScore);
+	std::string bonusScoreText = std::to_string(bonusScore);
+	textList[5]->setText("Time " + timeScoreText);
+	textList[4]->setText("Bonus " + bonusScoreText);
+
+	previousTime = Clock::now();
 }
 
 void render()
@@ -154,13 +206,13 @@ void render()
 	SDL_RenderClear(ren);
 
 	//Draw the sprite
-	for (auto const& sprite : levelSpriteList) //loops through all TextBox objects in list and calls their draw (render) function
+	for (auto const& sprite : levelSpriteList) //loops through all level objects in list and calls their draw (render) function
 	{
 		sprite->drawSprite();
 	}
 
 	//Draw the level
-	for (auto const& sprite : spriteList) //loops through all TextBox objects in list and calls their draw (render) function
+	for (auto const& sprite : spriteList) //loops through all player sprite objects in list and calls their draw (render) function
 	{
 		sprite->drawSprite();
 	}
@@ -253,7 +305,7 @@ int main( int argc, char* args[] )
 	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
 
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding sprite...");
-	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, true, 0.5))); //adds sprite to list
+	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 0.5))); //adds sprite to list
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite added");
 
 	spriteList[0]->populatAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
@@ -276,7 +328,6 @@ int main( int argc, char* args[] )
 
 	rect = { 0, 0, 70, 70 };
 	spritePosRect = { 0, 0, 70, 70 };
-	//spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false)));
 
 	LevelBuilder level01;
 	std::string levelPath = "./assets/level01.txt";
@@ -301,13 +352,37 @@ int main( int argc, char* args[] )
 	}
 
 	SDL_Color theColour = {255, 255, 255}; //text colour
-	SDL_Rect messageRect = { 50, 250, 300, 40 }; //x pos, y pos, width, height
-	std::string theString = "this is chuckie egg";
+	SDL_Rect messageRect; //x pos, y pos, width, height
+	std::string theString;
 
 	TextBox::setRenderer(ren); //set TextBox renderer
 
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding text...");
+
+	theString = "Score";
+	messageRect = { 20, 20, 100, 30 };
 	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect))); //adds text to list
+
+	theString = "000000";
+	messageRect = { 150, 20, 110, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+	
+	theString = "Player 1";
+	messageRect = { 20, 70, 120, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+
+	theString = "Level 01";
+	messageRect = { 160, 70, 150, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+
+	theString = "Bonus 0000";
+	messageRect = { 330, 70, 180, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+
+	theString = "Time 000";
+	messageRect = { 540, 70, 150, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Text added");
 	//---- text end ----//
 

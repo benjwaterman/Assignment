@@ -8,6 +8,7 @@ public:
 	TextBox(std::string theString, TTF_Font* theFont, SDL_Color theColor, SDL_Rect messageRect);
 	static void setRenderer(SDL_Renderer* renderer);
 	void drawText();
+	void setText(std::string newText);
 	~TextBox();
 	
 private:

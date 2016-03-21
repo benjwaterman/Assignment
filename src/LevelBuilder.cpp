@@ -48,16 +48,23 @@ std::vector<std::unique_ptr<SpriteHandler>> LevelBuilder::getLevel(std::string l
 				_column++;
 				break;
 			
-			case '1':
-				levelSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(_posRect, _texPosRect, grassImagePath, false, true, 0.5)));
+			case '1': //terrain
+				levelSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(_posRect, _texPosRect, grassImagePath, false, 1, 0.5)));
 				_column++;
 				break;
 			
-			case '2':
+			case '2': //ladder
+				levelSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(_posRect, _texPosRect, ladderImagePath, false, 2, 0.5)));
 				_column++;
 				break;
 			
-			case '3':
+			case '3': //mushroom
+				levelSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(_posRect, _texPosRect, mushroomImagePath, false, 3, 0.5)));
+				_column++;
+				break;
+
+			case '4': //plant
+				levelSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(_posRect, _texPosRect, plantImagePath, false, 3, 0.5)));
 				_column++;
 				break;
 			
