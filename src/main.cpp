@@ -20,6 +20,8 @@ std::vector<std::unique_ptr<TextBox>> textList; //list of textbox objects
 //player
 bool movingLeft = false;
 bool movingRight = false;
+bool movingUp = false;
+bool movingDown = false;
 float playerSpeed = 5.0f;
 
 //sound
@@ -77,6 +79,14 @@ void handleInput()
 				case SDLK_a:
 					movingLeft = true;
 					break;
+
+				case SDLK_w:
+					movingUp = true;
+					break;
+
+				case SDLK_s:
+					movingDown = true;
+					break;
 				}
 			break;
 
@@ -90,6 +100,14 @@ void handleInput()
 			case SDLK_a:
 				movingLeft = false;
 				break;
+
+			case SDLK_w:
+				movingUp = false;
+				break;
+
+			case SDLK_s:
+				movingDown = false;
+				break;
 			}
 			break;
 		}
@@ -101,13 +119,14 @@ void handleInput()
 void updateSimulation(double simLength = 0.02) //update simulation with an amount of time to simulate for (in seconds)
 {
 	bool canFall = true;
+	bool onLadder = false;
 
 	for (int i = 0; i < (int)levelSpriteList.size(); i++) //check player collider with every other collider in level
 	{
-		int playerSpriteX = spriteList[0]->getBoxCollider().x;
-		int playerSpriteY = spriteList[0]->getBoxCollider().y;
-		int playerSpriteW = spriteList[0]->getBoxCollider().w;
-		int playerSpriteH = spriteList[0]->getBoxCollider().h;
+		int playerSpriteX = spriteList[0]->getBoxCollider().x; //represents position of top left pixel x value
+		int playerSpriteY = spriteList[0]->getBoxCollider().y; //represents position of top left pixel y value
+		int playerSpriteW = spriteList[0]->getBoxCollider().w; //width of sprite, x value + this value give the top right value of the sprite
+		int playerSpriteH = spriteList[0]->getBoxCollider().h; //height of sprite, y value + this value give the bottom left value of the sprite
 
 		int levelSpriteX = levelSpriteList[i]->getBoxCollider().x;
 		int levelSpriteY = levelSpriteList[i]->getBoxCollider().y;
@@ -119,30 +138,102 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		playerSpriteX += 2; //to ensure player falls through gaps (default player sprite is 2 pixels wider than the gaps between terrain)
 		playerSpriteW -= 2;
 
+		//vertical checks 
+		//beneath player
 		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) || (levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
 		{
-			if (playerSpriteY + playerSpriteH >= levelSpriteY && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
+			if (levelSpriteY <= playerSpriteY + playerSpriteH && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
 			{
 				switch (colliderType)
 				{
-				case 0:
-					canFall = false;
-					break;
 				case 1: //solid
 					canFall = false;
+					movingDown = false;	
 					break;
+				
 				case 2://ladder
 					canFall = false;
+					onLadder = true;
 					break;
+				
 				case 3://mushroom
 					break;
+				
 				case 4://plant
 					break;
+				
 				default:
 					break;
 				}
 			}
 		}
+
+		//above player
+		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) || (levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
+		{
+			if (levelSpriteY + levelSpriteH <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) //y axis
+			{
+				switch (colliderType)
+				{
+				case 1: //solid
+					movingUp = false;
+					break;
+
+				case 2://ladder
+					canFall = false;
+					onLadder = true;
+					break;
+
+				default:
+					break;
+				}
+			}
+		}
+
+		//if (levelSpriteList[i]->getColliderType() == 2)
+		//{
+		//	if ((levelSpriteX + 10 <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW - 10) || (levelSpriteX - 10 <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW + 10)) //x axis
+		//	{
+		//		if (levelSpriteY - 10 <= playerSpriteY + playerSpriteH && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
+		//		{
+		//			onLadder = true;
+		//		}
+		//	}
+		//}
+
+		//horizontal checks (aka beside player)
+		//right
+		//if (!canFall && playerSpriteX + playerSpriteW >= levelSpriteX) //x axis
+		//{
+		//	//if (playerSpriteY + playerSpriteH >= levelSpriteY && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
+		//	{
+		//		switch (colliderType)
+		//		{
+		//		case 0:
+		//			
+		//			break;
+		//		case 1: //solid
+		//			//movingLeft = false;
+		//			//movingRight = false;
+		//			break;
+		//		case 2://ladder
+		//			
+		//			break;
+		//		case 3://mushroom
+		//			break;
+		//		case 4://plant
+		//			break;
+		//		default:
+		//			break;
+		//		}
+		//	}
+		//}
+	}
+
+	if (!onLadder)
+	{
+		movingUp = false;
+		movingDown = false;
 	}
 
 	if(canFall)
@@ -163,6 +254,20 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		if (movingRight && !movingLeft) //moving right
 		{
 			spriteList[0]->moveSprite(playerSpeed, 0);
+			if (Mix_Playing(1) != 1)
+				Mix_PlayChannel(1, walkSound, 0);
+		}
+
+		if (movingUp && !movingDown) //moving up
+		{
+			spriteList[0]->moveSprite(0, -playerSpeed);
+			if (Mix_Playing(1) != 1)
+				Mix_PlayChannel(1, walkSound, 0);
+		}
+
+		if (movingDown && !movingUp) //moving down
+		{
+			spriteList[0]->moveSprite(0, playerSpeed);
 			if (Mix_Playing(1) != 1)
 				Mix_PlayChannel(1, walkSound, 0);
 		}
