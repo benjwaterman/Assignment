@@ -2,6 +2,7 @@
 #include "TextBox.h"
 #include "SpriteHandler.h"
 #include "LevelBuilder.h"
+#include "CollisionHandler.h"
 
 typedef std::chrono::high_resolution_clock Clock;
 
@@ -128,6 +129,9 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		int playerSpriteW = spriteList[0]->getBoxCollider().w; //width of sprite, x value + this value give the top right value of the sprite
 		int playerSpriteH = spriteList[0]->getBoxCollider().h; //height of sprite, y value + this value give the bottom left value of the sprite
 
+		int playerSpriteCentX = playerSpriteX + (playerSpriteW / 2);
+		int playerSpriteCentY = playerSpriteY + (playerSpriteH / 2);
+
 		int levelSpriteX = levelSpriteList[i]->getBoxCollider().x;
 		int levelSpriteY = levelSpriteList[i]->getBoxCollider().y;
 		int levelSpriteW = levelSpriteList[i]->getBoxCollider().w;
@@ -140,7 +144,8 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 
 		//vertical checks 
 		//beneath player
-		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) || (levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
+		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) || 
+			(levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
 		{
 			if (levelSpriteY <= playerSpriteY + playerSpriteH && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
 			{
@@ -151,15 +156,12 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 					movingDown = false;	
 					break;
 				
-				case 2://ladder
-					canFall = false;
-					onLadder = true;
-					break;
-				
 				case 3://mushroom
+					//pick up, add to score
 					break;
 				
 				case 4://plant
+					//pick up, add to score
 					break;
 				
 				default:
@@ -169,7 +171,8 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		}
 
 		//above player
-		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) || (levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
+		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) || 
+			(levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
 		{
 			if (levelSpriteY + levelSpriteH <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) //y axis
 			{
@@ -179,9 +182,45 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 					movingUp = false;
 					break;
 
-				case 2://ladder
-					canFall = false;
-					onLadder = true;
+				default:
+					break;
+				}
+			}
+		}
+
+		//make sure center of player is within ladder
+		if (levelSpriteList[i]->getColliderType() == 2) //if ladder
+		{
+			if (levelSpriteX <= playerSpriteCentX && playerSpriteCentX <= levelSpriteX + levelSpriteW) //x axis
+			{
+				if (levelSpriteY <= playerSpriteCentY && playerSpriteCentY <= levelSpriteY + levelSpriteH) //y axis
+				{
+					switch (colliderType)
+					{
+					case 2://ladder
+						canFall = false;
+						onLadder = true;
+						break;
+
+					default:
+						break;
+					}
+				}
+			}
+		}
+
+		//horizontal checks (aka beside player)
+		//right
+		if (playerSpriteX + playerSpriteW >= levelSpriteX && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW) //x axis 
+		{
+			if ((levelSpriteY <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) || 
+				(levelSpriteY <= playerSpriteY + playerSpriteH - 2 && playerSpriteY + playerSpriteH - 2 <= levelSpriteY + levelSpriteH) ||
+				(levelSpriteY <= playerSpriteY + playerSpriteH - playerSpriteH / 2 && playerSpriteY + playerSpriteH - playerSpriteH / 2 <= levelSpriteY + levelSpriteH)) //have to check at 3 points along edge of sprite, top, middle and bottom for collisions
+			{
+				switch (colliderType)
+				{
+				case 1: //solid
+					movingRight = false;
 					break;
 
 				default:
@@ -190,44 +229,24 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 			}
 		}
 
-		//if (levelSpriteList[i]->getColliderType() == 2)
-		//{
-		//	if ((levelSpriteX + 10 <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW - 10) || (levelSpriteX - 10 <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW + 10)) //x axis
-		//	{
-		//		if (levelSpriteY - 10 <= playerSpriteY + playerSpriteH && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
-		//		{
-		//			onLadder = true;
-		//		}
-		//	}
-		//}
+		//left
+		if (playerSpriteX <= levelSpriteX + levelSpriteW && playerSpriteX >= levelSpriteX) //x axis 
+		{
+			if ((levelSpriteY <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) ||
+				(levelSpriteY <= playerSpriteY + playerSpriteH - 2 && playerSpriteY + playerSpriteH - 2 <= levelSpriteY + levelSpriteH) ||
+				(levelSpriteY <= playerSpriteY + playerSpriteH - playerSpriteH / 2 && playerSpriteY + playerSpriteH - playerSpriteH / 2 <= levelSpriteY + levelSpriteH)) //have to check at 3 points along edge of sprite, top, middle and bottom for collisions
+			{
+				switch (colliderType)
+				{
+				case 1: //solid
+					movingLeft = false;
+					break;
 
-		//horizontal checks (aka beside player)
-		//right
-		//if (!canFall && playerSpriteX + playerSpriteW >= levelSpriteX) //x axis
-		//{
-		//	//if (playerSpriteY + playerSpriteH >= levelSpriteY && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
-		//	{
-		//		switch (colliderType)
-		//		{
-		//		case 0:
-		//			
-		//			break;
-		//		case 1: //solid
-		//			//movingLeft = false;
-		//			//movingRight = false;
-		//			break;
-		//		case 2://ladder
-		//			
-		//			break;
-		//		case 3://mushroom
-		//			break;
-		//		case 4://plant
-		//			break;
-		//		default:
-		//			break;
-		//		}
-		//	}
-		//}
+				default:
+					break;
+				}
+			}
+		}
 	}
 
 	if (!onLadder)
