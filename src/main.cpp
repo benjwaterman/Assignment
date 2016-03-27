@@ -23,6 +23,8 @@ bool movingLeft = false;
 bool movingRight = false;
 bool movingUp = false;
 bool movingDown = false;
+bool jumping = false;
+bool canFall = true;
 float playerSpeed = 5.0f;
 
 //sound
@@ -88,6 +90,28 @@ void handleInput()
 				case SDLK_s:
 					movingDown = true;
 					break;
+				
+				case SDLK_SPACE:
+					if (!canFall)
+						jumping = true;
+					break;
+				}
+
+			if (event.key.repeat)
+				switch (event.key.keysym.sym)
+				{
+				case SDLK_d:
+					movingRight = true;
+					break;
+
+				case SDLK_a:
+					movingLeft = true;
+					break;
+
+				case SDLK_SPACE:
+					if (!canFall)
+						jumping = true;
+					break;
 				}
 			break;
 
@@ -119,7 +143,7 @@ void handleInput()
 // tag::updateSimulation[]
 void updateSimulation(double simLength = 0.02) //update simulation with an amount of time to simulate for (in seconds)
 {
-	bool canFall = true;
+	canFall = true;
 	bool onLadder = false;
 
 	for (int i = 0; i < (int)levelSpriteList.size(); i++) //check player collider with every other collider in level
@@ -188,7 +212,7 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 			}
 		}
 
-		//make sure center of player is within ladder
+		//ladder, make sure center of player is within ladder
 		if (levelSpriteList[i]->getColliderType() == 2) //if ladder
 		{
 			if (levelSpriteX <= playerSpriteCentX && playerSpriteCentX <= levelSpriteX + levelSpriteW) //x axis
@@ -200,6 +224,12 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 					case 2://ladder
 						canFall = false;
 						onLadder = true;
+
+						if (!movingLeft && !movingRight)
+						{
+							spriteList[0]->setSpriteX(levelSpriteList[i]->getX()); //makes the player "stick" to the ladder so they dont clip into terrain when going up and down
+						}
+
 						break;
 
 					default:
@@ -255,14 +285,37 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		movingDown = false;
 	}
 
-	if(canFall)
-		for (auto const& sprite : spriteList) //apply gravity to all sprites (will only actually apply gravity if it is enabled on sprite creation)
+	if (canFall && !jumping)
+	{
+		for (auto const& sprite : spriteList) //apply gravity to all sprites (will only actually apply gravity if it gravity is enabled on sprite creation)
 			sprite->gravity();
+		jumping = false;
+	}
 
-	spriteList[0]->animateSprite(6, 5, 30, true); //frames, sprite fps, looping
+	if (onLadder) //stop playing jumping when on ladder
+		jumping = false;
+
+	if (jumping) //when jump is pressed
+	{
+		switch (spriteList[0]->jump(10, 60)) //speed and height of jump
+		{
+		case true: //if true is return, player is still jumping
+			break;
+
+		case false: //if false is return player has reached the max height of the jump and so is set to no longer be jumping
+			jumping = false;
+			break;
+		}
+	}
 
 	if (!canFall)
 	{
+		if ((movingLeft || movingRight) )//&& !onLadder)
+			spriteList[0]->animateSprite(5, 5, 30, true); //frames (includes start frame), sprite fps, looping
+
+		if (movingUp || movingDown) //if moving up or down
+			spriteList[0]->animateSprite(11, 2, 10, true);
+
 		if (movingLeft && !movingRight) //moving left
 		{
 			spriteList[0]->moveSprite(-playerSpeed, 0);
@@ -292,9 +345,14 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		}
 	}
 
-	if (!movingRight && !movingLeft || movingLeft && movingRight || canFall) //player not moving
+	if ((!movingRight && !movingLeft || movingLeft && movingRight) && (!movingUp && !movingDown || movingUp && movingDown)) //player not moving
 	{
-		spriteList[0]->setIdle();
+		if (onLadder)
+		{
+		}//spriteList[0]->animateSprite(12, 1, 5, true);
+		else
+			spriteList[0]->setIdle();
+
 		Mix_HaltChannel(1); //stops sound playing when stopping moving, in case half way through sound
 	}
 
@@ -414,7 +472,10 @@ int main( int argc, char* args[] )
 		std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
 		cleanExit(1);
 	}
-
+	SDL_SetRenderDrawColor(ren, 20, 49, 59, 255); //set background colour
+	SDL_RenderClear(ren);
+	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
+	TextBox::setRenderer(ren); //set TextBox renderer
 
 	//---- sprite begin ----//
 	//---- player 1 begin ----//
@@ -424,23 +485,20 @@ int main( int argc, char* args[] )
 	SDL_Rect spritePosRect = {0, 0, 66, 92}; //position of sprite in spritesheet, x, y, w, h
 
 	std::string imagePath = "./assets/player_walk.png"; //sprite image path
-	std::string spriteDataPath = "./assets/player_walk.txt";
+	std::string spriteDataPath = "./assets/player_walk.txt"; //sprite image data (for animations) path
 
-	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
-
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding sprite...");
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding player sprite...");
 	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 0.5))); //adds sprite to list
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite added");
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Player sprite added");
 
-	spriteList[0]->populatAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
+	spriteList[0]->populateAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
 
 	//create idle
 	imagePath = "./assets/player_idle.png";
-
 	rect = { 0, 0, 66, 92 }; 
 	spritePosRect = { 0, 0, 66, 92 }; 
 
-	spriteList[0]->createIdleSprite(rect, spritePosRect, imagePath);
+	spriteList[0]->createIdleSprite(rect, spritePosRect, imagePath); //creates idle sprite for player when not moving
 	//---- player 1 end ----//
 
 	//---- player 2 begin ----//
@@ -479,8 +537,6 @@ int main( int argc, char* args[] )
 	SDL_Rect messageRect; //x pos, y pos, width, height
 	std::string theString;
 
-	TextBox::setRenderer(ren); //set TextBox renderer
-
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding text...");
 
 	theString = "Score";
@@ -513,12 +569,12 @@ int main( int argc, char* args[] )
 
 	//---- sound begin ----//
 	//load background music
-	bgMusic = Mix_LoadMUS("./assets/background_music.ogg");
-	if (bgMusic == NULL)
-	{
-		std::cout << "Background music SDL_mixer Error: " << Mix_GetError() << std::endl;
-		cleanExit(1);
-	}
+	//bgMusic = Mix_LoadMUS("./assets/background_music.ogg");
+	//if (bgMusic == NULL)
+	//{
+	//	std::cout << "Background music SDL_mixer Error: " << Mix_GetError() << std::endl;
+	//	cleanExit(1);
+	//}
 
 	//load other sounds
 	walkSound = Mix_LoadWAV("./assets/player_footstep.ogg");
@@ -528,13 +584,12 @@ int main( int argc, char* args[] )
 		cleanExit(1);
 	}
 
-	if (Mix_PlayingMusic() == 0)
-	{
-		//Play the music
-		Mix_PlayMusic(bgMusic, -1);
-	}
+	//if (Mix_PlayingMusic() == 0)
+	//{
+	//	Mix_PlayMusic(bgMusic, -1);
+	//}
 
-	Mix_VolumeChunk(walkSound, 50);
+	Mix_VolumeChunk(walkSound, 50); //set volume of footsteps
 	//---- sound end ----//
 
 

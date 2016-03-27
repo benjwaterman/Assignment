@@ -87,22 +87,6 @@
 	"trimmed": true,
 	"spriteSourceSize": {"x":5,"y":5,"w":73,"h":97},
 	"sourceSize": {"w":73,"h":97}
-},
-"Symbol 2 copy 2 instance 10011":
-{
-	"frame": {"x":137,"y":279,"w":66,"h":95},
-	"rotated": false,
-	"trimmed": true,
-	"spriteSourceSize": {"x":0,"y":4,"w":73,"h":97},
-	"sourceSize": {"w":73,"h":97}
-},
-"Symbol 2 copy 2 instance 10012":
-{
-	"frame": {"x":0,"y":372,"w":66,"h":94},
-	"rotated": false,
-	"trimmed": true,
-	"spriteSourceSize": {"x":0,"y":4,"w":73,"h":97},
-	"sourceSize": {"w":73,"h":97}
 }},
 "meta": {
 	"app": "Adobe Flash CS6",

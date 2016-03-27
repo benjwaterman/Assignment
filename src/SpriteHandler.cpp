@@ -30,7 +30,7 @@ SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string 
 	_posRect.h /= _scaleFactor;
 	_posRect.w /= _scaleFactor;
 
-	_currentFrame = 1;
+	_currentFrame = 0;
 
 	_surface = IMG_Load(imagePath.c_str());
 	if (_surface == nullptr)
@@ -72,7 +72,7 @@ void SpriteHandler::drawSprite() //renders sprite
 
 void SpriteHandler::animateSprite(int startFrame, int frames, int fps, bool loop)
 {
-	startFrame--;
+	//startFrame--;
 	int spriteFPS; //sprite should not play at the same fps as game runs, so this limits the the fps the sprite is running at
 	if (fps > 0)
 		spriteFPS = 1000 / fps;
@@ -80,16 +80,16 @@ void SpriteHandler::animateSprite(int startFrame, int frames, int fps, bool loop
 	else
 		spriteFPS = 0;
 
-	if (loop && _currentFrame == frames)
+	if (loop && _currentFrame >= frames)
 	{
-		_currentFrame = 1;
+		_currentFrame = 0;
 	}
 
 	_dt += std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - time).count();
 
 	if (_dt > spriteFPS) //64ms ~= 15fps
 	{
-		_texPosRect = spriteDataList[_currentFrame + startFrame - 1];
+		_texPosRect = spriteDataList[_currentFrame + startFrame];
 		_currentFrame++;
 		
 		_dt = 0;
@@ -98,7 +98,7 @@ void SpriteHandler::animateSprite(int startFrame, int frames, int fps, bool loop
 	time = Clock::now();
 }
 
-void SpriteHandler::populatAnimationData(std::string filePath)
+void SpriteHandler::populateAnimationData(std::string filePath)
 {
 	_spriteDataPath = filePath;
 
@@ -122,7 +122,7 @@ void SpriteHandler::getFromFile(char charToGet)
 	{
 		std::size_t pos = str.find("\"frame\""); //find line in file that has "frame" data
 		
-		if (pos != std::string::npos)
+		if (pos != std::string::npos) //checks pos exists
 		{
 			std::string str2 = str.substr(pos); //creates substring at position found above
 
@@ -131,7 +131,6 @@ void SpriteHandler::getFromFile(char charToGet)
 			searchString += "\"";
 			searchString += charToGet;
 			searchString += "\":";
-			//std::cout << "search string: " << searchString << std::endl;
 
 			std::size_t pos2 = str.find(searchString);
 
@@ -159,8 +158,6 @@ void SpriteHandler::getFromFile(char charToGet)
 						canAdd = true;
 					}
 				}
-
-				//std::cout << "char: " << charToGet << " " << charHolder << std::endl;
 				
 				switch (charToGet)
 				{
@@ -191,6 +188,7 @@ void SpriteHandler::getFromFile(char charToGet)
 
 void SpriteHandler::moveSprite(float moveX, float moveY) //moves sprite and flips it according to direction of movement, assuming sprites starts facing right
 {
+	_speedX = moveX;
 	_spriteMoving = true;
 	_posRect.x += moveX;
 	_posRect.y += moveY;
@@ -234,12 +232,29 @@ void SpriteHandler::createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std:
 void SpriteHandler::setIdle()
 {
 	_spriteMoving = false;
+	_speedX = 0;
 }
 
 void SpriteHandler::gravity()
 {
 	if (_posRect.y < 900 && _enableGravity)
 		moveSprite(0, 5);
+}
+
+bool SpriteHandler::jump(int speed, int height)
+{
+	if (_curJumpHeight < height)
+	{
+		_curJumpHeight += speed;
+		moveSprite(_speedX, -speed);
+		return true;
+	}
+
+	else
+	{
+		_curJumpHeight = 0;
+		return false;
+	}
 }
 
 void SpriteHandler::addBoxCollider()
@@ -259,6 +274,16 @@ int SpriteHandler::getColliderType()
 SDL_Rect SpriteHandler::getBoxCollider()
 {
 	return _boxCollider;
+}
+
+int SpriteHandler::getX()
+{
+	return _posRect.x;
+}
+
+void SpriteHandler::setSpriteX(int x)
+{
+	_posRect.x = x;
 }
 
 SpriteHandler::~SpriteHandler()

@@ -11,15 +11,18 @@ public:
 	static void setRenderer(SDL_Renderer* renderer);
 	void drawSprite();
 	void animateSprite(int startFrame, int frames, int fps, bool loop);
-	void populatAnimationData(std::string filePath);
+	void populateAnimationData(std::string filePath);
 	void getFromFile(char charToGet);
 	void moveSprite(float moveX, float moveY);
 	void createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath);
 	void setIdle();
 	void gravity();
+	bool jump(int speed, int height);
 	void addBoxCollider();
 	int getColliderType();
 	SDL_Rect getBoxCollider();
+	int getX();
+	void setSpriteX(int x);
 	~SpriteHandler();
 
 private:
@@ -44,6 +47,9 @@ private:
 	int _rowFrame = 1;
 	int _scaleFactor;
 	int _colliderType; // 1 = solid, eg cant walk through; 2 = ladders, 3 = collectables
+	int _curJumpHeight = 0;
+	int _speedX = 0;
+	int _maxHeight = 9000000;
 
 	bool _spriteMoving;
 	bool _enableGravity;
