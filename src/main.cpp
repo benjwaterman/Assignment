@@ -145,7 +145,7 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 {
 	canFall = true;
 	bool onLadder = false;
-
+	/*
 	for (int i = 0; i < (int)levelSpriteList.size(); i++) //check player collider with every other collider in level
 	{
 		int playerSpriteX = spriteList[0]->getBoxCollider().x; //represents position of top left pixel x value
@@ -277,7 +277,15 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 				}
 			}
 		}
-	}
+	} */
+
+	Position4 relativePosition = CollisionHandler().CheckCollisions(spriteList[0], levelSpriteList);
+	onLadder = CollisionHandler().IsOnLadder();
+
+	if(relativePosition.above)	{movingUp = false;}
+	if(relativePosition.beneath)	{canFall = false;}
+	if (relativePosition.left)	{movingLeft = false;}
+	if (relativePosition.right)	{movingRight = false;}
 
 	if (!onLadder)
 	{
@@ -591,7 +599,6 @@ int main( int argc, char* args[] )
 
 	Mix_VolumeChunk(walkSound, 50); //set volume of footsteps
 	//---- sound end ----//
-
 
 	while (!done) //loop until done flag is set)
 	{
