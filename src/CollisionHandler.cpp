@@ -7,12 +7,7 @@ CollisionHandler::CollisionHandler()
 
 Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const &player, std::vector<std::unique_ptr<SpriteHandler>> const &levelObjects)
 {
-	_relativePosition.above = false;
-	_relativePosition.beneath = false;
-	_relativePosition.left = false;
-	_relativePosition.right = false;
-
-	for (int i = 0; i < (int)levelObjects.size(); i++) //check player collider with every other collider in level
+	for (i = 0; i < (int)levelObjects.size(); i++) //check player collider with every other collider in level
 	{
 		int playerSpriteX = player->getBoxCollider().x; //represents position of top left pixel x value
 		int playerSpriteY = player->getBoxCollider().y; //represents position of top left pixel y value
@@ -39,7 +34,13 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 		{
 			if (levelSpriteY <= playerSpriteY + playerSpriteH && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
 			{
-				_relativePosition.beneath = true;
+				if (colliderType != 2) //ladders are special a case which is handled seperately
+				{
+					_relativePosition.beneath.isTrue = true;
+					_relativePosition.beneath.type = colliderType;
+
+					CheckForScore(colliderType);
+				}
 			}
 		}
 
@@ -49,7 +50,10 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 		{
 			if (levelSpriteY + levelSpriteH <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) //y axis
 			{
-				_relativePosition.above = true;
+				_relativePosition.above.isTrue = true;
+				_relativePosition.above.type = colliderType;
+
+				CheckForScore(colliderType);
 			}
 		}
 
@@ -61,7 +65,10 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 				(levelSpriteY <= playerSpriteY + playerSpriteH - 2 && playerSpriteY + playerSpriteH - 2 <= levelSpriteY + levelSpriteH) ||
 				(levelSpriteY <= playerSpriteY + playerSpriteH - playerSpriteH / 2 && playerSpriteY + playerSpriteH - playerSpriteH / 2 <= levelSpriteY + levelSpriteH)) //have to check at 3 points along edge of sprite, top, middle and bottom for collisions
 			{
-				_relativePosition.right = true;
+				_relativePosition.right.isTrue = true;
+				_relativePosition.right.type = colliderType;
+
+				CheckForScore(colliderType);
 			}
 		}
 
@@ -72,7 +79,10 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 				(levelSpriteY <= playerSpriteY + playerSpriteH - 2 && playerSpriteY + playerSpriteH - 2 <= levelSpriteY + levelSpriteH) ||
 				(levelSpriteY <= playerSpriteY + playerSpriteH - playerSpriteH / 2 && playerSpriteY + playerSpriteH - playerSpriteH / 2 <= levelSpriteY + levelSpriteH)) //have to check at 3 points along edge of sprite, top, middle and bottom for collisions
 			{
-				_relativePosition.left = true;
+				_relativePosition.left.isTrue = true;
+				_relativePosition.left.type = colliderType;
+
+				CheckForScore(colliderType);
 			}
 		}
 
@@ -83,13 +93,8 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 			{
 				if (levelSpriteY <= playerSpriteCentY && playerSpriteCentY <= levelSpriteY + levelSpriteH) //y axis
 				{
-					_onLadder = true;
-
-						//if (!movingLeft && !movingRight)
-						//{
-						//	_player.setSpriteX(_levelObjects[i]->getX()); //makes the player "stick" to the ladder so they dont clip into terrain when going up and down
-						//}
-
+					_relativePosition.onLadder = true;
+					_relativePosition.ladderCenter = levelObjects[i]->getX();
 				}
 			}
 		}
@@ -98,28 +103,15 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 	return _relativePosition;
 }
 
-bool CollisionHandler::CheckType(int type) //check what the collision is with
+void CollisionHandler::CheckForScore(int type)
 {
-	switch (type)
+	if (type == 3 || type == 4)
 	{
-	case 1:
-		break;
-	case 2:
-		break;
-	case 3:
-		break;
-	case 4:
-		break;
-	case 5:
-		break;
-	default:
-		break;
+		_relativePosition.gainScore = true;
+		_relativePosition.elementInArray = i;
 	}
-}
-
-bool CollisionHandler::IsOnLadder()
-{
-	return _onLadder;
+	else
+		_relativePosition.gainScore = false;
 }
 
 CollisionHandler::~CollisionHandler()

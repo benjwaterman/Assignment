@@ -13,7 +13,7 @@ public:
 	void animateSprite(int startFrame, int frames, int fps, bool loop);
 	void populateAnimationData(std::string filePath);
 	void getFromFile(char charToGet);
-	void moveSprite(float moveX, float moveY);
+	void moveSprite(Vector2 vec2);
 	void createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath);
 	void setIdle();
 	void gravity();
@@ -23,6 +23,7 @@ public:
 	SDL_Rect getBoxCollider();
 	int getX();
 	void setSpriteX(int x);
+	void updateMovement();
 	~SpriteHandler();
 
 private:
@@ -39,6 +40,8 @@ private:
 	SDL_Rect _origSPR;
 	SDL_Rect _boxCollider;
 	SDL_RendererFlip _flip;
+
+	Vector2 _spriteMovement;
 
 	int _spriteWidth;
 	int _spriteHeight;

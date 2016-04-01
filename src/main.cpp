@@ -26,6 +26,7 @@ bool movingDown = false;
 bool jumping = false;
 bool canFall = true;
 float playerSpeed = 5.0f;
+Vector2 moveVector;
 
 //sound
 Mix_Music *bgMusic;
@@ -38,6 +39,7 @@ float deltaTime;
 float deltaTime2;
 int timeScore = 900;
 int bonusScore = 1000;
+int score = 0;
 
 void handleInput()
 {
@@ -92,7 +94,7 @@ void handleInput()
 					break;
 				
 				case SDLK_SPACE:
-					if (!canFall)
+					if (!canFall && !jumping)
 						jumping = true;
 					break;
 				}
@@ -109,7 +111,7 @@ void handleInput()
 					break;
 
 				case SDLK_SPACE:
-					if (!canFall)
+					if (!canFall && !jumping)
 						jumping = true;
 					break;
 				}
@@ -143,8 +145,8 @@ void handleInput()
 // tag::updateSimulation[]
 void updateSimulation(double simLength = 0.02) //update simulation with an amount of time to simulate for (in seconds)
 {
-	canFall = true;
-	bool onLadder = false;
+	bool onLadder;
+	canFall = true; //always start each from as being able to fall, unless a collision occurs
 	/*
 	for (int i = 0; i < (int)levelSpriteList.size(); i++) //check player collider with every other collider in level
 	{
@@ -280,32 +282,85 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 	} */
 
 	Position4 relativePosition = CollisionHandler().CheckCollisions(spriteList[0], levelSpriteList);
-	onLadder = CollisionHandler().IsOnLadder();
+	
+	//checks collisions and sets variables 
+	if (relativePosition.above.isTrue && relativePosition.above.type == 1) 	{ movingUp = false; }
+	if (relativePosition.beneath.isTrue && relativePosition.beneath.type == 1) { movingDown = false; canFall = false; }
+	if (relativePosition.left.isTrue && relativePosition.left.type == 1) 	{ movingLeft = false; }
+	if (relativePosition.right.isTrue && relativePosition.right.type == 1) 	{ movingRight = false; }
+	if (relativePosition.beneath.isTrue && relativePosition.beneath.type == 2) { canFall = false; } //if player is touching ladder
+	
+	relativePosition.onLadder ? onLadder = true : onLadder = false;
 
-	if(relativePosition.above)	{movingUp = false;}
-	if(relativePosition.beneath)	{canFall = false;}
-	if (relativePosition.left)	{movingLeft = false;}
-	if (relativePosition.right)	{movingRight = false;}
+	if (relativePosition.gainScore)
+	{
+		score += 10;
+		levelSpriteList.erase(levelSpriteList.begin() + relativePosition.elementInArray);
+	}
 
-	if (!onLadder)
+	if (!onLadder)// && !(relativePosition.beneath.isTrue && relativePosition.beneath.type == 2))
 	{
 		movingUp = false;
 		movingDown = false;
 	}
 
+	if (onLadder) //stop playing jumping when on ladder
+	{
+		canFall = false;
+		jumping = false;
+		if (!movingLeft && !movingRight)
+		{
+			spriteList[0]->setSpriteX(relativePosition.ladderCenter); //makes the player "stick" to the ladder so they dont clip into terrain when going up and down
+		}
+	}
+
 	if (canFall && !jumping)
 	{
-		for (auto const& sprite : spriteList) //apply gravity to all sprites (will only actually apply gravity if it gravity is enabled on sprite creation)
+		for (auto const& sprite : spriteList) //apply gravity to all sprites (will only actually apply gravity if it gravity is enabled on that sprite)
 			sprite->gravity();
 		jumping = false;
 	}
 
-	if (onLadder) //stop playing jumping when on ladder
-		jumping = false;
+	if (!canFall) //if on solid object
+	{
+		if ((movingLeft || movingRight) && !onLadder) //moving left or right
+			spriteList[0]->animateSprite(5, 5, 30, true); 
+		
+		if (movingLeft && !movingRight) //moving left
+		{
+			spriteList[0]->moveSprite(Vector2(-playerSpeed, 0));
+			if (Mix_Playing(1) != 1)
+				Mix_PlayChannel(1, walkSound, 0);
+		}
+
+		if (movingRight && !movingLeft) //moving right
+		{
+			spriteList[0]->moveSprite(Vector2(playerSpeed, 0));
+			if (Mix_Playing(1) != 1)
+				Mix_PlayChannel(1, walkSound, 0);
+		}
+
+		if (movingUp || movingDown) //moving up or down
+			spriteList[0]->animateSprite(11, 2, 10, true);
+
+		if (movingUp && !movingDown) //moving up
+		{
+			spriteList[0]->moveSprite(Vector2(0, -playerSpeed));
+			if (Mix_Playing(1) != 1)
+				Mix_PlayChannel(1, walkSound, 0);
+		}
+
+		if (movingDown && !movingUp) //moving down
+		{
+			spriteList[0]->moveSprite(Vector2(0, playerSpeed));
+			if (Mix_Playing(1) != 1)
+				Mix_PlayChannel(1, walkSound, 0);
+		}
+	}
 
 	if (jumping) //when jump is pressed
 	{
-		switch (spriteList[0]->jump(10, 60)) //speed and height of jump
+		switch (spriteList[0]->jump(5, 60)) //speed and height of jump
 		{
 		case true: //if true is return, player is still jumping
 			break;
@@ -316,53 +371,19 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		}
 	}
 
-	if (!canFall)
-	{
-		if ((movingLeft || movingRight) )//&& !onLadder)
-			spriteList[0]->animateSprite(5, 5, 30, true); //frames (includes start frame), sprite fps, looping
-
-		if (movingUp || movingDown) //if moving up or down
-			spriteList[0]->animateSprite(11, 2, 10, true);
-
-		if (movingLeft && !movingRight) //moving left
-		{
-			spriteList[0]->moveSprite(-playerSpeed, 0);
-			if (Mix_Playing(1) != 1)
-				Mix_PlayChannel(1, walkSound, 0);
-		}
-
-		if (movingRight && !movingLeft) //moving right
-		{
-			spriteList[0]->moveSprite(playerSpeed, 0);
-			if (Mix_Playing(1) != 1)
-				Mix_PlayChannel(1, walkSound, 0);
-		}
-
-		if (movingUp && !movingDown) //moving up
-		{
-			spriteList[0]->moveSprite(0, -playerSpeed);
-			if (Mix_Playing(1) != 1)
-				Mix_PlayChannel(1, walkSound, 0);
-		}
-
-		if (movingDown && !movingUp) //moving down
-		{
-			spriteList[0]->moveSprite(0, playerSpeed);
-			if (Mix_Playing(1) != 1)
-				Mix_PlayChannel(1, walkSound, 0);
-		}
-	}
-
 	if ((!movingRight && !movingLeft || movingLeft && movingRight) && (!movingUp && !movingDown || movingUp && movingDown)) //player not moving
 	{
 		if (onLadder)
 		{
-		}//spriteList[0]->animateSprite(12, 1, 5, true);
+			spriteList[0]->animateSprite(12, 1, 5, true);
+		}
 		else
 			spriteList[0]->setIdle();
 
 		Mix_HaltChannel(1); //stops sound playing when stopping moving, in case half way through sound
 	}
+
+	spriteList[0]->updateMovement();
 
 	//time decreases by 1 for every 0.5 second starting at 900, bonus goes down by 10 for every 5 time that goes down starting at 1000
 	
@@ -384,8 +405,14 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 
 	std::string timeScoreText = std::to_string(timeScore);
 	std::string bonusScoreText = std::to_string(bonusScore);
+	std::string scoreText = std::to_string(score);
 	textList[5]->setText("Time " + timeScoreText);
 	textList[4]->setText("Bonus " + bonusScoreText);
+
+	std::string zeros = "";
+	for (int i = scoreText.length(); i < 6; i++)
+		zeros += "0";
+	textList[1]->setText(zeros + scoreText);
 
 	previousTime = Clock::now();
 }
@@ -551,7 +578,7 @@ int main( int argc, char* args[] )
 	messageRect = { 20, 20, 100, 30 };
 	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect))); //adds text to list
 
-	theString = "000000";
+	theString = "000000"; //score number
 	messageRect = { 150, 20, 110, 30 };
 	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
 	

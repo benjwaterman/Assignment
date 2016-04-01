@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -19,3 +20,50 @@
 #endif
 
 #include <SDL_mixer.h>
+
+//custom data structures
+struct PositionInfo
+{
+	PositionInfo()
+	{
+		type = 0;
+		isTrue = false;
+	}
+
+	int type;
+	bool isTrue;
+};
+
+struct Position4
+{
+	Position4()
+	{
+		onLadder = false;
+		gainScore = false;
+		ladderCenter = 0;
+		elementInArray = -1;
+	}
+
+	PositionInfo above, beneath, left, right;
+	bool onLadder;
+	bool gainScore;
+
+	int ladderCenter;
+	int elementInArray;
+};
+
+struct Vector2
+{
+	Vector2()
+	{
+		x = y = 0;
+	}
+
+	Vector2(int _x, int _y)
+	{
+		x = _x;
+		y = _y;
+	}
+
+	int x, y;
+};

@@ -186,23 +186,14 @@ void SpriteHandler::getFromFile(char charToGet)
 	}
 }
 
-void SpriteHandler::moveSprite(float moveX, float moveY) //moves sprite and flips it according to direction of movement, assuming sprites starts facing right
+void SpriteHandler::moveSprite(Vector2 vec2) //moves sprite and flips it according to direction of movement, assuming sprites starts facing right
 {
-	_speedX = moveX;
+	int x = vec2.x;
+	int y = vec2.y;
+
 	_spriteMoving = true;
-	_posRect.x += moveX;
-	_posRect.y += moveY;
-
-	//makes the sprite face the correct way when moving
-	if (moveX > 0)
-	{
-		_flip = SDL_FLIP_NONE;
-	}
-
-	else if (moveX < 0)
-	{
-		_flip = SDL_FLIP_HORIZONTAL;
-	}
+	_spriteMovement.x += x;
+	_spriteMovement.y += y;
 }
 
 void SpriteHandler::createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath)
@@ -238,19 +229,19 @@ void SpriteHandler::setIdle()
 void SpriteHandler::gravity()
 {
 	if (_posRect.y < 900 && _enableGravity)
-		moveSprite(0, 5);
+		moveSprite(Vector2(0, 5));
 }
 
 bool SpriteHandler::jump(int speed, int height)
 {
-	if (_curJumpHeight < height)
+	if (_curJumpHeight < height) //keeps increasing player height until it reaches the height specified
 	{
 		_curJumpHeight += speed;
-		moveSprite(_speedX, -speed);
-		return true;
+		moveSprite(Vector2(0, -speed));
+		return true; //as long as true return the function will be called every frame
 	}
 
-	else
+	else //after specified height is reached, reset variable and return false
 	{
 		_curJumpHeight = 0;
 		return false;
@@ -284,6 +275,27 @@ int SpriteHandler::getX()
 void SpriteHandler::setSpriteX(int x)
 {
 	_posRect.x = x;
+}
+
+void SpriteHandler::updateMovement()
+{
+	_posRect.x += _spriteMovement.x;
+	_posRect.y += _spriteMovement.y;
+
+	_speedX = _spriteMovement.x;
+
+	//makes the sprite face the correct way when moving
+	if (_spriteMovement.x > 0)
+	{
+		_flip = SDL_FLIP_NONE;
+	}
+
+	else if (_spriteMovement.x < 0)
+	{
+		_flip = SDL_FLIP_HORIZONTAL;
+	}
+
+	_spriteMovement = { 0, 0 };
 }
 
 SpriteHandler::~SpriteHandler()
