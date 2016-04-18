@@ -9,7 +9,9 @@ typedef std::chrono::high_resolution_clock Clock;
 std::string exeName;
 SDL_Window *win; //pointer to the SDL_Window
 SDL_Renderer *ren; //pointer to the SDL_Renderer
+
 bool done = false;
+bool paused = false;
 
 //sprites
 std::vector<std::unique_ptr<SpriteHandler>> spriteList; //list of character spritehandler objects
@@ -78,19 +80,28 @@ void handleInput()
 					done = true;
 
 				case SDLK_d:
-					movingRight = true;
+					if(!paused)
+						movingRight = true;
 					break;
 
 				case SDLK_a:
-					movingLeft = true;
+					if (!paused)
+						movingLeft = true;
 					break;
 
 				case SDLK_w:
-					movingUp = true;
+					if (!paused)
+						movingUp = true;
 					break;
 
 				case SDLK_s:
-					movingDown = true;
+					if (!paused)
+						movingDown = true;
+					break;
+
+				//Pause or unpause
+				case SDLK_p:
+					paused = !paused;
 					break;
 				
 				case SDLK_SPACE:
@@ -103,16 +114,19 @@ void handleInput()
 				switch (event.key.keysym.sym)
 				{
 				case SDLK_d:
-					movingRight = true;
+					if (!paused)
+						movingRight = true;
 					break;
 
 				case SDLK_a:
-					movingLeft = true;
+					if (!paused)
+						movingLeft = true;
 					break;
 
 				case SDLK_SPACE:
-					if (!canFall && !jumping)
-						jumping = true;
+					if (!paused)
+						if (!canFall && !jumping)
+							jumping = true;
 					break;
 				}
 			break;
@@ -329,6 +343,7 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		if (movingLeft && !movingRight) //moving left
 		{
 			spriteList[0]->moveSprite(Vector2(-playerSpeed, 0));
+			//TODO check walkSound != nullptr
 			if (Mix_Playing(1) != 1)
 				Mix_PlayChannel(1, walkSound, 0);
 		}
@@ -385,7 +400,7 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 
 	spriteList[0]->updateMovement();
 
-	//time decreases by 1 for every 0.5 second starting at 900, bonus goes down by 10 for every 5 time that goes down starting at 1000
+	//timeScore decreases by 1 for every 0.5 second starting at 900, bonus goes down by 10 for every 5 timeScore that goes down starting at 1000
 	
 	currentTime = Clock::now();
 	deltaTime += std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - previousTime).count();
@@ -393,15 +408,22 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 
 	if (deltaTime >= 500) //0.5 of a second
 	{
-		timeScore -= 1;
+		if(timeScore > 0)
+			timeScore -= 1;
+
+		if (bonusScore > 0)
+			bonusScore -= 5;
+		
 		deltaTime = 0;
 	}
 
-	if (deltaTime2 >= 1000) //0.5 of a second
-	{
-		bonusScore -= 10;
-		deltaTime2 = 0;
-	}
+	//if (deltaTime2 >= 1000) //0.5 of a second
+	//{
+	//	if(bonusScore > 0)
+	//		bonusScore -= 10;
+	//	
+	//	deltaTime2 = 0;
+	//}
 
 	std::string timeScoreText = std::to_string(timeScore);
 	std::string bonusScoreText = std::to_string(bonusScore);
@@ -440,6 +462,12 @@ void render()
 		text->drawText();
 	}
 
+	//If paused, draw pause menu
+	if (paused)
+	{
+
+	}
+
 	//Update the screen
 	SDL_RenderPresent(ren);
 }
@@ -473,6 +501,20 @@ void fpsLimiter(std::chrono::steady_clock::time_point time) //limits to 60fps
 	SDL_Delay(timeToWait);
 }
 
+void loadAssets()
+{
+	if (walkSound == nullptr)
+	{
+		walkSound = Mix_LoadWAV("./assets/player_footstep.ogg");
+		if (walkSound == NULL)
+		{
+			std::cout << "Walk sound SDL_mixer Error: " << Mix_GetError() << std::endl;
+			cleanExit(1);
+		}
+
+		Mix_VolumeChunk(walkSound, 50); //set volume of footsteps
+	}
+}
 // based on http://www.willusher.io/sdl2%20tutorials/2013/08/17/lesson-1-hello-world/
 int main( int argc, char* args[] )
 {
@@ -507,8 +549,13 @@ int main( int argc, char* args[] )
 		std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
 		cleanExit(1);
 	}
+	SDL_RenderSetLogicalSize(ren, 700, 945);
 	SDL_SetRenderDrawColor(ren, 20, 49, 59, 255); //set background colour
 	SDL_RenderClear(ren);
+
+	//Showloading screen
+
+
 	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
 	TextBox::setRenderer(ren); //set TextBox renderer
 
@@ -516,7 +563,7 @@ int main( int argc, char* args[] )
 	//---- player 1 begin ----//
 	//SDL_Surface *surface; //pointer to the SDL_Surface
 	//SDL_Texture *tex; //pointer to the SDL_Texture
-	SDL_Rect rect = {150, 150, 66, 92}; //size and position of sprite, x, y, w, h
+	SDL_Rect rect = {100, 800, 66, 92}; //size and position of sprite, x, y, w, h
 	SDL_Rect spritePosRect = {0, 0, 66, 92}; //position of sprite in spritesheet, x, y, w, h
 
 	std::string imagePath = "./assets/player_walk.png"; //sprite image path
@@ -604,36 +651,33 @@ int main( int argc, char* args[] )
 
 	//---- sound begin ----//
 	//load background music
-	//bgMusic = Mix_LoadMUS("./assets/background_music.ogg");
-	//if (bgMusic == NULL)
-	//{
-	//	std::cout << "Background music SDL_mixer Error: " << Mix_GetError() << std::endl;
-	//	cleanExit(1);
-	//}
-
-	//load other sounds
-	walkSound = Mix_LoadWAV("./assets/player_footstep.ogg");
-	if (walkSound == NULL)
+	bgMusic = Mix_LoadMUS("./assets/background_music.ogg");
+	if (bgMusic == NULL)
 	{
-		std::cout << "Walk sound SDL_mixer Error: " << Mix_GetError() << std::endl;
+		std::cout << "Background music SDL_mixer Error: " << Mix_GetError() << std::endl;
 		cleanExit(1);
 	}
 
-	//if (Mix_PlayingMusic() == 0)
-	//{
-	//	Mix_PlayMusic(bgMusic, -1);
-	//}
+	//load other sounds
+	
+	if (Mix_PlayingMusic() == 0)
+	{
+		Mix_PlayMusic(bgMusic, -1);
+	}
 
-	Mix_VolumeChunk(walkSound, 50); //set volume of footsteps
+	
 	//---- sound end ----//
 
 	while (!done) //loop until done flag is set)
 	{
 		auto time = Clock::now(); //used for FPS limiter
 
+		loadAssets();
+
 		handleInput(); // this should ONLY SET VARIABLES
 
-		updateSimulation(); // this should ONLY SET VARIABLES according to simulation
+		if(!paused)
+			updateSimulation(); // this should ONLY SET VARIABLES according to simulation
 
 		render(); // this should render the world state according to VARIABLES
 

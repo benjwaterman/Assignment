@@ -13,6 +13,7 @@ SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string 
 
 	//ASSERT or check that ren is not nullptr
 	_posRect = rect;
+	_oldPosRect = rect;
 	_texPosRect = spritePosRect;
 	_origSPR = _texPosRect; //store original (used for animation)
 	_flip = SDL_FLIP_NONE;
@@ -229,7 +230,7 @@ void SpriteHandler::setIdle()
 void SpriteHandler::gravity()
 {
 	if (_posRect.y < 900 && _enableGravity)
-		moveSprite(Vector2(0, 5));
+		moveSprite(Vector2(0, 1));
 }
 
 bool SpriteHandler::jump(int speed, int height)
@@ -250,6 +251,7 @@ bool SpriteHandler::jump(int speed, int height)
 
 void SpriteHandler::addBoxCollider()
 {
+	_oldPosRect = _boxCollider;
 	_boxCollider = { _posRect.x, _posRect.y, _posRect.w, _posRect.h };
 }
 
@@ -296,6 +298,11 @@ void SpriteHandler::updateMovement()
 	}
 
 	_spriteMovement = { 0, 0 };
+}
+
+SDL_Rect SpriteHandler::getOldPos()
+{
+	return _oldPosRect;
 }
 
 SpriteHandler::~SpriteHandler()

@@ -24,6 +24,7 @@ public:
 	int getX();
 	void setSpriteX(int x);
 	void updateMovement();
+	SDL_Rect getOldPos();
 	~SpriteHandler();
 
 private:
@@ -35,6 +36,7 @@ private:
 	SDL_Texture *_texMove;
 	SDL_Texture *_texIdle;
 	SDL_Rect _posRect;
+	SDL_Rect _oldPosRect;
 	SDL_Rect _texPosRect;
 	SDL_Rect _texPosRectIdle;
 	SDL_Rect _origSPR;
