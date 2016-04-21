@@ -23,8 +23,11 @@ public:
 	SDL_Rect getBoxCollider();
 	int getX();
 	void setSpriteX(int x);
+	void setSpriteY(int y);
 	void updateMovement();
 	SDL_Rect getOldPos();
+	SDL_Rect getPos();
+	void setPos(int x, int y, int w, int h);
 	~SpriteHandler();
 
 private:

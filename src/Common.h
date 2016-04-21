@@ -7,6 +7,8 @@
 #include <vector>
 #include <memory>
 #include <chrono>
+#include <sstream>
+#include "zmq.hpp"
 
 #ifdef _WIN32 // compiling on windows
 #include <SDL.h>

@@ -274,9 +274,16 @@ int SpriteHandler::getX()
 	return _posRect.x;
 }
 
+//for directly setting the sprites x value
 void SpriteHandler::setSpriteX(int x)
 {
 	_posRect.x = x;
+}
+
+//for directly setting the sprites y value
+void SpriteHandler::setSpriteY(int y)
+{
+	_posRect.y = y;
 }
 
 void SpriteHandler::updateMovement()
@@ -305,13 +312,23 @@ SDL_Rect SpriteHandler::getOldPos()
 	return _oldPosRect;
 }
 
+SDL_Rect SpriteHandler::getPos()
+{
+	return _posRect;
+}
+
+void SpriteHandler::setPos(int x, int y, int w, int h)
+{
+	_posRect.x = x;
+	_posRect.y = y;
+	_posRect.w = w; 
+	_posRect.h = h;
+}
+
 SpriteHandler::~SpriteHandler()
 {
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite Destructed(%p)", this);
 
 	if (_texMove != nullptr)
-		SDL_DestroyTexture(_texMove);
-
-	if (_texIdle != nullptr)
 		SDL_DestroyTexture(_texMove);
 }
