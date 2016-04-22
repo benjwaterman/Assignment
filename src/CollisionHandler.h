@@ -6,7 +6,7 @@ class CollisionHandler
 {
 public:
 	CollisionHandler();
-	Position4 CheckCollisions(std::unique_ptr<SpriteHandler> const &player, std::vector<std::unique_ptr<SpriteHandler>> const &levelObjects);
+	Position4 CheckCollisions(std::unique_ptr<SpriteHandler> const &player, Vector2 playerMovement, std::vector<std::unique_ptr<SpriteHandler>> const &levelObjects);
 	void CheckForScore(int type);
 	bool CheckBeneath(int oldPlayerSpriteMaxY, int playerSpriteMaxY, int levelSpriteMinY);
 	bool CheckAbove(int, int, int);

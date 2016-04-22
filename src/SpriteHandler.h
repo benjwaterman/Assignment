@@ -16,7 +16,7 @@ public:
 	void moveSprite(Vector2 vec2);
 	void createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath);
 	void setIdle();
-	void gravity();
+	bool getGravity();
 	bool jump(int speed, int height);
 	void addBoxCollider();
 	int getColliderType();
@@ -24,10 +24,16 @@ public:
 	int getX();
 	void setSpriteX(int x);
 	void setSpriteY(int y);
-	void updateMovement();
+	void updateMovement(Position4 relativePosition);
 	SDL_Rect getOldPos();
 	SDL_Rect getPos();
 	void setPos(int x, int y, int w, int h);
+	void setPos(SDL_Rect rect);
+	void enableGravity(bool x);
+	void setLastClearPos(int x, int y, int w, int h);
+	void setLastClearPos(SDL_Rect rect);
+	SDL_Rect getLastClearPos();
+
 	~SpriteHandler();
 
 private:
@@ -40,6 +46,7 @@ private:
 	SDL_Texture *_texIdle;
 	SDL_Rect _posRect;
 	SDL_Rect _oldPosRect;
+	SDL_Rect _lastClearPosRect;
 	SDL_Rect _texPosRect;
 	SDL_Rect _texPosRectIdle;
 	SDL_Rect _origSPR;
@@ -62,6 +69,13 @@ private:
 	bool _spriteMoving;
 	bool _enableGravity;
 	bool _enableCollider;
+	bool _movingLeft = false;
+	bool _movingRight = false;
+	bool _movingUp = false;
+	bool _movingDown = false;
+	bool _jumping = false;
+	bool _canFall = true;
+	bool _onLadder = true;
 
 	double _dt = 0; //delta time
 

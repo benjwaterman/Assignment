@@ -7,7 +7,7 @@
 typedef std::chrono::high_resolution_clock Clock;
 
 std::string exeName;
-SDL_Window *win; //pointer to the SDL_Window
+SDL_Window *win; //pointer to the SDL_Window http://lazyfoo.net/SDL_tutorials/lesson26/
 SDL_Renderer *ren; //pointer to the SDL_Renderer
 
 bool done = false;
@@ -27,8 +27,10 @@ bool movingUp = false;
 bool movingDown = false;
 bool jumping = false;
 bool canFall = true;
-float playerSpeed = 5.0f;
+bool canJump = true;
+int playerSpeed = 5.0f;
 Vector2 moveVector;
+int thisPlayer = 0; //for keeping track of which player the client/server is
 
 //sound
 Mix_Music *bgMusic;
@@ -68,7 +70,7 @@ void handleNetwork()
 		snprintf((char *)message.data(), messageLength,
 			"%06.3f %06.3f %06.3f %06.3f ", float(spriteList[0]->getPos().x), float(spriteList[0]->getPos().y), float(spriteList[0]->getPos().w), float(spriteList[0]->getPos().h));
 
-		std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
+		//std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
 
 		//  Send message to all subscribers
 		this_zmq_publisher.send(message);
@@ -137,13 +139,19 @@ void handleInput()
 					done = true;
 
 				case SDLK_d:
-					if(!paused)
+					if (!paused)
+					{
 						movingRight = true;
+						movingLeft = false;
+					}
 					break;
 
 				case SDLK_a:
 					if (!paused)
+					{
 						movingLeft = true;
+						movingRight = false;
+					}
 					break;
 
 				case SDLK_w:
@@ -162,28 +170,8 @@ void handleInput()
 					break;
 				
 				case SDLK_SPACE:
-					if (!canFall && !jumping)
+					if (!paused && canJump)
 						jumping = true;
-					break;
-				}
-
-			if (event.key.repeat)
-				switch (event.key.keysym.sym)
-				{
-				case SDLK_d:
-					if (!paused)
-						movingRight = true;
-					break;
-
-				case SDLK_a:
-					if (!paused)
-						movingLeft = true;
-					break;
-
-				case SDLK_SPACE:
-					if (!paused)
-						if (!canFall && !jumping)
-							jumping = true;
 					break;
 				}
 			break;
@@ -218,145 +206,21 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 {
 	if (ZMQserver)
 	{
-		bool onLadder;
-		canFall = true; //always start each from as being able to fall, unless a collision occurs
-		/*
-		for (int i = 0; i < (int)levelSpriteList.size(); i++) //check player collider with every other collider in level
-		{
-			int playerSpriteX = spriteList[0]->getBoxCollider().x; //represents position of top left pixel x value
-			int playerSpriteY = spriteList[0]->getBoxCollider().y; //represents position of top left pixel y value
-			int playerSpriteW = spriteList[0]->getBoxCollider().w; //width of sprite, x value + this value give the top right value of the sprite
-			int playerSpriteH = spriteList[0]->getBoxCollider().h; //height of sprite, y value + this value give the bottom left value of the sprite
+		/*bool onLadder;
+		canFall = true; //always start each frame as being able to fall, unless a collision occurs
 
-			int playerSpriteCentX = playerSpriteX + (playerSpriteW / 2);
-			int playerSpriteCentY = playerSpriteY + (playerSpriteH / 2);
-
-			int levelSpriteX = levelSpriteList[i]->getBoxCollider().x;
-			int levelSpriteY = levelSpriteList[i]->getBoxCollider().y;
-			int levelSpriteW = levelSpriteList[i]->getBoxCollider().w;
-			int levelSpriteH = levelSpriteList[i]->getBoxCollider().h;
-
-			int colliderType = levelSpriteList[i]->getColliderType();
-
-			playerSpriteX += 2; //to ensure player falls through gaps (default player sprite is 2 pixels wider than the gaps between terrain)
-			playerSpriteW -= 2;
-
-			//vertical checks
-			//beneath player
-			if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) ||
-				(levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
-			{
-				if (levelSpriteY <= playerSpriteY + playerSpriteH && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
-				{
-					switch (colliderType)
-					{
-					case 1: //solid
-						canFall = false;
-						movingDown = false;
-						break;
-
-					case 3://mushroom
-						//pick up, add to score
-						break;
-
-					case 4://plant
-						//pick up, add to score
-						break;
-
-					default:
-						break;
-					}
-				}
-			}
-
-			//above player
-			if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) ||
-				(levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
-			{
-				if (levelSpriteY + levelSpriteH <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) //y axis
-				{
-					switch (colliderType)
-					{
-					case 1: //solid
-						movingUp = false;
-						break;
-
-					default:
-						break;
-					}
-				}
-			}
-
-			//ladder, make sure center of player is within ladder
-			if (levelSpriteList[i]->getColliderType() == 2) //if ladder
-			{
-				if (levelSpriteX <= playerSpriteCentX && playerSpriteCentX <= levelSpriteX + levelSpriteW) //x axis
-				{
-					if (levelSpriteY <= playerSpriteCentY && playerSpriteCentY <= levelSpriteY + levelSpriteH) //y axis
-					{
-						switch (colliderType)
-						{
-						case 2://ladder
-							canFall = false;
-							onLadder = true;
-
-							if (!movingLeft && !movingRight)
-							{
-								spriteList[0]->setSpriteX(levelSpriteList[i]->getX()); //makes the player "stick" to the ladder so they dont clip into terrain when going up and down
-							}
-
-							break;
-
-						default:
-							break;
-						}
-					}
-				}
-			}
-
-			//horizontal checks (aka beside player)
-			//right
-			if (playerSpriteX + playerSpriteW >= levelSpriteX && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW) //x axis
-			{
-				if ((levelSpriteY <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) ||
-					(levelSpriteY <= playerSpriteY + playerSpriteH - 2 && playerSpriteY + playerSpriteH - 2 <= levelSpriteY + levelSpriteH) ||
-					(levelSpriteY <= playerSpriteY + playerSpriteH - playerSpriteH / 2 && playerSpriteY + playerSpriteH - playerSpriteH / 2 <= levelSpriteY + levelSpriteH)) //have to check at 3 points along edge of sprite, top, middle and bottom for collisions
-				{
-					switch (colliderType)
-					{
-					case 1: //solid
-						movingRight = false;
-						break;
-
-					default:
-						break;
-					}
-				}
-			}
-
-			//left
-			if (playerSpriteX <= levelSpriteX + levelSpriteW && playerSpriteX >= levelSpriteX) //x axis
-			{
-				if ((levelSpriteY <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) ||
-					(levelSpriteY <= playerSpriteY + playerSpriteH - 2 && playerSpriteY + playerSpriteH - 2 <= levelSpriteY + levelSpriteH) ||
-					(levelSpriteY <= playerSpriteY + playerSpriteH - playerSpriteH / 2 && playerSpriteY + playerSpriteH - playerSpriteH / 2 <= levelSpriteY + levelSpriteH)) //have to check at 3 points along edge of sprite, top, middle and bottom for collisions
-				{
-					switch (colliderType)
-					{
-					case 1: //solid
-						movingLeft = false;
-						break;
-
-					default:
-						break;
-					}
-				}
-			}
-		} */
-
+		//get any collisions and their direction
 		Position4 relativePosition = CollisionHandler().CheckCollisions(spriteList[0], levelSpriteList);
 
 		//checks collisions and sets variables 
+		//if player is on ladder
+		relativePosition.onLadder ? onLadder = true : onLadder = false;
+
+		if (relativePosition.beneath.type == 1 && relativePosition.above.type == 1 && relativePosition.left.type == 1 && relativePosition.right.type == 1)
+		{
+			spriteList[0]->setPos(spriteList[0]->getLastClearPos());
+		}
+
 		if (relativePosition.above.isTrue && relativePosition.above.type == 1)
 		{
 			movingUp = false;
@@ -367,7 +231,12 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		{
 			movingDown = false;
 			canFall = false;
-			//spriteList[0]->setSpriteY(spriteList[0]->getOldPos().y);
+
+			spriteList[0]->setPos(spriteList[0]->getLastClearPos());
+			if (onLadder)
+			{
+				spriteList[0]->setSpriteY(spriteList[0]->getOldPos().y - 2); //stops the player partially clipping through floor when on ladder
+			}
 		}
 
 		if (relativePosition.left.isTrue && relativePosition.left.type == 1)
@@ -381,14 +250,6 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 			movingRight = false;
 			spriteList[0]->setSpriteX(spriteList[0]->getOldPos().x);
 		}
-
-		//if player is touching ladder
-		if (relativePosition.beneath.isTrue && relativePosition.beneath.type == 2)
-		{
-			canFall = false;
-		}
-
-		relativePosition.onLadder ? onLadder = true : onLadder = false;
 
 		//add to score and remove sprite from level
 		if (relativePosition.gainScore)
@@ -487,7 +348,101 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		}
 
 		//apply all movement changes
-		spriteList[0]->updateMovement();
+		spriteList[0]->updateMovement();*/
+
+		Position4 relativePosition;
+		Vector2 playerMovement(0, 0);
+		if (movingRight)
+		{
+			playerMovement = { playerSpeed, 0 };
+			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+			spriteList[thisPlayer]->moveSprite(playerMovement);
+		}
+
+		else if (movingLeft)
+		{
+			playerMovement = { -playerSpeed, 0 };
+			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+			spriteList[thisPlayer]->moveSprite(playerMovement);
+		}
+
+		else if (movingUp)
+		{
+			playerMovement = {0, -playerSpeed};
+			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+			if (relativePosition.onLadder)
+				spriteList[thisPlayer]->moveSprite(playerMovement);
+		}
+
+		else if (movingDown)
+		{
+			playerMovement = { 0, playerSpeed };
+			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+			if(relativePosition.onLadder)
+				spriteList[thisPlayer]->moveSprite(playerMovement);
+		}
+
+		//not moving
+		else
+		{
+			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], Vector2(0, 0), levelSpriteList);
+		}
+
+		//jumping
+		if (jumping)
+		{
+			switch (spriteList[thisPlayer]->jump(5, 60)) //speed and height of jump
+			{
+			case true: //if true is returned, player is still jumping
+				jumping = true;
+				canJump = false;
+				break;
+
+			case false: //if false is returned player has reached the max height of the jump and so is set to no longer be jumping
+				jumping = false;
+				break;
+			}
+		}
+
+		if (!jumping && !canJump)
+		{
+			if (relativePosition.beneath.type == 1)
+			{
+				canJump = true;
+			}
+		}
+
+		//animation
+		//if player is moving left or right, but not up or down and not on a ladder
+		if (playerMovement.x != 0 && playerMovement.y == 0 && !relativePosition.onLadder)
+		{
+			spriteList[thisPlayer]->animateSprite(5, 5, 30, true);
+		}
+
+		//player moving up or down, not left or right and is on ladder
+		else if (playerMovement.y != 0 && playerMovement.x == 0 && relativePosition.onLadder)
+		{
+			spriteList[thisPlayer]->animateSprite(11, 2, 10, true);
+		}
+
+		//not moving
+		else
+		{
+			//set idle animations
+			if (relativePosition.onLadder)
+				spriteList[thisPlayer]->animateSprite(12, 1, 5, true);
+			else
+				spriteList[thisPlayer]->setIdle();
+		}
+
+		//add to score and remove sprite from level
+		if (relativePosition.gainScore)
+		{
+			score += 10;
+			levelSpriteList.erase(levelSpriteList.begin() + relativePosition.elementInArray);
+		}
+
+		spriteList[thisPlayer]->updateMovement(relativePosition);
 
 		//timeScore decreases by 1 for every 0.5 second starting at 900, bonus goes down by 10 for every 5 timeScore that goes down starting at 1000	
 		currentTime = Clock::now();
@@ -504,14 +459,6 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 
 			deltaTime = 0;
 		}
-
-		//if (deltaTime2 >= 1000) //0.5 of a second
-		//{
-		//	if(bonusScore > 0)
-		//		bonusScore -= 10;
-		//	
-		//	deltaTime2 = 0;
-		//}
 
 		std::string timeScoreText = std::to_string(timeScore);
 		std::string bonusScoreText = std::to_string(bonusScore);
@@ -644,9 +591,9 @@ int main( int argc, char* args[] )
 	//create window
 	//win = SDL_CreateWindow("My Game", 100, 100, 700, 945, SDL_WINDOW_SHOWN);
 	if (ZMQserver)
-		win = SDL_CreateWindow("My Game (SERVER)", 100, 100, 700, 945, SDL_WINDOW_SHOWN);
+		win = SDL_CreateWindow("My Game (SERVER)", 100, 100, 700, 945, SDL_WINDOW_SHOWN);// || SDL_WINDOW_FULLSCREEN_DESKTOP);
 	else
-		win = SDL_CreateWindow("My Game (CLIENT)", 100, 100, 700, 945, SDL_WINDOW_SHOWN);
+		win = SDL_CreateWindow("My Game (CLIENT)", 100, 100, 700, 945, SDL_WINDOW_SHOWN);// || SDL_WINDOW_FULLSCREEN_DESKTOP);
 
 	//error handling
 	if (win == nullptr)

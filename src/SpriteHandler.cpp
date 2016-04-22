@@ -1,4 +1,5 @@
 #include "SpriteHandler.h"
+#include "CollisionHandler.h"
 
 SDL_Renderer* SpriteHandler::_ren = nullptr;
 
@@ -187,7 +188,8 @@ void SpriteHandler::getFromFile(char charToGet)
 	}
 }
 
-void SpriteHandler::moveSprite(Vector2 vec2) //moves sprite and flips it according to direction of movement, assuming sprites starts facing right
+//moves sprite
+void SpriteHandler::moveSprite(Vector2 vec2) 
 {
 	int x = vec2.x;
 	int y = vec2.y;
@@ -224,26 +226,29 @@ void SpriteHandler::createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std:
 void SpriteHandler::setIdle()
 {
 	_spriteMoving = false;
-	_speedX = 0;
 }
 
-void SpriteHandler::gravity()
+bool SpriteHandler::getGravity()
 {
-	if (_posRect.y < 900 && _enableGravity)
-		moveSprite(Vector2(0, 1));
+	return _enableGravity;
 }
 
 bool SpriteHandler::jump(int speed, int height)
 {
-	if (_curJumpHeight < height) //keeps increasing player height until it reaches the height specified
+	//keeps increasing player height until it reaches the height specified
+	if (_curJumpHeight < height) 
 	{
+		_jumping = true;
 		_curJumpHeight += speed;
 		moveSprite(Vector2(0, -speed));
-		return true; //as long as true return the function will be called every frame
+		//as long as true is returned the function will continue to be called
+		return true; 
 	}
 
-	else //after specified height is reached, reset variable and return false
+	//after specified height is reached, reset variable and return false
+	else 
 	{
+		_jumping = false;
 		_curJumpHeight = 0;
 		return false;
 	}
@@ -286,14 +291,9 @@ void SpriteHandler::setSpriteY(int y)
 	_posRect.y = y;
 }
 
-void SpriteHandler::updateMovement()
+void SpriteHandler::updateMovement(Position4 relativePosition)
 {
-	_posRect.x += _spriteMovement.x;
-	_posRect.y += _spriteMovement.y;
-
-	_speedX = _spriteMovement.x;
-
-	//makes the sprite face the correct way when moving
+	//flips sprite according to direction of movement, assuming sprite starts facing right
 	if (_spriteMovement.x > 0)
 	{
 		_flip = SDL_FLIP_NONE;
@@ -303,6 +303,65 @@ void SpriteHandler::updateMovement()
 	{
 		_flip = SDL_FLIP_HORIZONTAL;
 	}
+
+	//get any collisions and their direction
+	//if player is on ladder
+	relativePosition.onLadder ? _onLadder = true : _onLadder = false;
+	
+	//if on a ladder
+	if (_onLadder)
+	{
+		//makes the player "stick" to the ladder when not moving left or right, so they dont clip into terrain when going up and down
+		if(_spriteMovement.x == 0)
+			setSpriteX(relativePosition.ladderCenter); 
+		_enableGravity = false;
+	}
+
+	if (relativePosition.above.isTrue && relativePosition.above.type == 1)
+	{
+		//if colliding above, no moving up
+		if (_spriteMovement.y < 0)
+			_spriteMovement.y = 0;
+	}
+
+	if (relativePosition.beneath.isTrue && relativePosition.beneath.type == 1)
+	{
+		//if colliding below, no moving down
+		if (_spriteMovement.y > 0)
+			_spriteMovement.y = 0;
+		_enableGravity = false;
+	}
+
+	//if not on ladder and not jumping enable gravity, prevent playing moving up or down
+	else if(!_onLadder && !_jumping)
+	{
+		_enableGravity = true;
+	}
+
+	if (relativePosition.left.isTrue && relativePosition.left.type == 1)
+	{
+		//if colliding left, no moving left
+		if (_spriteMovement.x < 0)
+			_spriteMovement.x = 0;
+	}
+
+	if (relativePosition.right.isTrue && relativePosition.right.type == 1)
+	{
+		//if colliding right, no moving right
+		if (_spriteMovement.x > 0)
+			_spriteMovement.x = 0;
+	}
+
+	//if gravity is enabled, apply it
+	if (_enableGravity == true)
+	{
+		_spriteMovement.y = 5;
+	}
+
+	//finally update the sprite position
+	_posRect.x += _spriteMovement.x;
+	if(_jumping || _onLadder || _enableGravity)
+		_posRect.y += _spriteMovement.y;
 
 	_spriteMovement = { 0, 0 };
 }
@@ -323,6 +382,34 @@ void SpriteHandler::setPos(int x, int y, int w, int h)
 	_posRect.y = y;
 	_posRect.w = w; 
 	_posRect.h = h;
+}
+
+void SpriteHandler::setPos(SDL_Rect rect)
+{
+	_posRect = rect;
+}
+
+void SpriteHandler::enableGravity(bool x)
+{
+	_enableGravity = x;
+}
+
+void SpriteHandler::setLastClearPos(int x, int y, int w, int h)
+{
+	_lastClearPosRect.x = x;
+	_lastClearPosRect.y = y;
+	_lastClearPosRect.w = w;
+	_lastClearPosRect.h = h;
+}
+
+void SpriteHandler::setLastClearPos(SDL_Rect rect)
+{
+	_lastClearPosRect = rect;
+}
+
+SDL_Rect SpriteHandler::getLastClearPos()
+{
+	return _lastClearPosRect;
 }
 
 SpriteHandler::~SpriteHandler()
