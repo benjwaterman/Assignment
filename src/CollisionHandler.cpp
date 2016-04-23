@@ -8,6 +8,7 @@ CollisionHandler::CollisionHandler()
 Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const &player, Vector2 playerMovement, std::vector<std::unique_ptr<SpriteHandler>> const &levelObjects)
 {
 	bool touchingLadder = false;
+	bool touchingFloor = false;
 	for (i = 0; i < (int)levelObjects.size(); i++) //check player collider with every other collider in level
 	{
 		//new position
@@ -89,6 +90,9 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 								std::cout << "Collision detected beneath" << std::endl;
 								_relativePosition.beneath.isTrue = true;
 								_relativePosition.beneath.type = colliderType;
+
+								if (_relativePosition.beneath.isTrue == true && _relativePosition.beneath.type == 1)
+									touchingFloor = true;
 							}
 
 							if (CheckAbove(oldPlayerSpriteMinY, playerSpriteMinY, levelSpriteMaxY)) 
@@ -96,6 +100,11 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 								std::cout << "Collision detected above" << std::endl;
 								_relativePosition.above.isTrue = true;
 								_relativePosition.above.type = colliderType;
+							}
+
+							if (!touchingFloor && touchingLadder)
+							{
+								playerSpriteMaxY += 5;
 							}
 
 							if ((playerSpriteMaxY - 5 > levelSpriteMinY) && CheckRight(oldPlayerSpriteMaxX, playerSpriteMaxX, levelSpriteMinX)) // - 5 required to stop clipping with floor

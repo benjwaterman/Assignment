@@ -3,12 +3,16 @@
 #include "SpriteHandler.h"
 #include "LevelBuilder.h"
 #include "CollisionHandler.h"
+#include "Window.h"
 
 typedef std::chrono::high_resolution_clock Clock;
 
+//window
 std::string exeName;
-SDL_Window *win; //pointer to the SDL_Window http://lazyfoo.net/SDL_tutorials/lesson26/
 SDL_Renderer *ren; //pointer to the SDL_Renderer
+Window win; //custom class window
+int const winWidth = 700;
+int const winHeight = 945;
 
 bool done = false;
 bool paused = false;
@@ -16,6 +20,8 @@ bool paused = false;
 //sprites
 std::vector<std::unique_ptr<SpriteHandler>> spriteList; //list of character spritehandler objects
 std::vector<std::unique_ptr<SpriteHandler>> levelSpriteList; //list of level spritehandler objects 
+std::vector<std::unique_ptr<SpriteHandler>> menuSpriteList; //list of menu spritehandler objects 
+std::vector<std::unique_ptr<SpriteHandler>> menuSpriteListSelected; //list of menu spritehandler objects 
 
 //text
 std::vector<std::unique_ptr<TextBox>> textList; //list of textbox objects
@@ -51,6 +57,31 @@ zmq::context_t this_zmq_context(1);
 
 zmq::socket_t this_zmq_publisher(this_zmq_context, ZMQ_PUB); 
 zmq::socket_t this_zmq_subscriber(this_zmq_context, ZMQ_SUB);
+
+//pause menu
+SDL_Surface *pauseSurface;
+SDL_Texture *pauseTex;
+int menuItem = 0;
+int menuItemTotal = 5;
+
+void cleanExit(int returnValue)
+{
+	if (returnValue == 1)//pauses before exit so error can be read in console
+		std::cin;
+
+	//if (tex != nullptr) SDL_DestroyTexture(tex);
+	if (ren != nullptr) SDL_DestroyRenderer(ren);
+	SDL_FreeSurface(pauseSurface);
+	//if (win != nullptr) SDL_DestroyWindow(win);
+
+	Mix_FreeChunk(walkSound);
+	Mix_FreeMusic(bgMusic);
+
+	Mix_Quit();
+	SDL_Quit();
+
+	exit(returnValue);
+}
 
 void handleNetwork()
 {
@@ -157,11 +188,62 @@ void handleInput()
 				case SDLK_w:
 					if (!paused)
 						movingUp = true;
+					else
+					{
+						if (0 < menuItem && menuItem < menuItemTotal)
+							menuItem--;
+						else
+							menuItem = menuItemTotal - 1;
+					}
 					break;
 
 				case SDLK_s:
 					if (!paused)
 						movingDown = true;
+					else
+					{
+						if (menuItem < menuItemTotal - 1)
+							menuItem++;
+						else
+							menuItem = 0;
+					}
+					break;
+
+				case SDLK_RETURN:
+					if (paused)
+					{
+						switch (menuItem)
+						{
+						//resume
+						case 0:
+							paused = false;
+							break;
+
+						//toggle bg music
+						case 1:
+							if (Mix_PausedMusic() == 1)
+								Mix_ResumeMusic();
+							else
+								Mix_PauseMusic();
+							break;
+
+						//toggle fullscreen
+						case 2:
+							win.fullscreenToggle();
+							break;
+
+						case 3:
+							break;
+
+						case 4:
+							cleanExit(0);
+							break;
+
+						default:
+							break;
+						}
+					}
+					
 					break;
 
 				//pause or unpause
@@ -503,29 +585,17 @@ void render()
 	//If paused, draw pause menu
 	if (paused)
 	{
+		
+		for (auto const& sprite : menuSpriteList) //loops through menu objects
+		{
+			sprite->drawSprite();
+		}
 
+		menuSpriteListSelected[menuItem]->drawSprite();
 	}
 
 	//Update the screen
 	SDL_RenderPresent(ren);
-}
-
-void cleanExit(int returnValue)
-{
-	if (returnValue == 1)//pauses before exit so error can be read in console
-		std::cin;
-
-	//if (tex != nullptr) SDL_DestroyTexture(tex);
-	if (ren != nullptr) SDL_DestroyRenderer(ren);
-	if (win != nullptr) SDL_DestroyWindow(win);
-
-	Mix_FreeChunk(walkSound);
-	Mix_FreeMusic(bgMusic);
-	
-	Mix_Quit();
-	SDL_Quit();
-
-	exit(returnValue);
 }
 
 void fpsLimiter(std::chrono::steady_clock::time_point time) //limits to 60fps
@@ -553,7 +623,7 @@ void loadAssets()
 		Mix_VolumeChunk(walkSound, 50); //set volume of footsteps
 	}
 }
-// based on http://www.willusher.io/sdl2%20tutorials/2013/08/17/lesson-1-hello-world/
+
 int main( int argc, char* args[] )
 {
 	std::cout << "argc was: " << argc << std::endl;
@@ -588,45 +658,59 @@ int main( int argc, char* args[] )
 	}
 	std::cout << "SDL_Mixer initialised OK!\n";
 
-	//create window
-	//win = SDL_CreateWindow("My Game", 100, 100, 700, 945, SDL_WINDOW_SHOWN);
-	if (ZMQserver)
-		win = SDL_CreateWindow("My Game (SERVER)", 100, 100, 700, 945, SDL_WINDOW_SHOWN);// || SDL_WINDOW_FULLSCREEN_DESKTOP);
-	else
-		win = SDL_CreateWindow("My Game (CLIENT)", 100, 100, 700, 945, SDL_WINDOW_SHOWN);// || SDL_WINDOW_FULLSCREEN_DESKTOP);
-
-	//error handling
-	if (win == nullptr)
+	//create window and error check
+	if (!win.init())
 	{
 		std::cout << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
 		cleanExit(1);
 	}
-	std::cout << "SDL CreatedWindow OK!\n";
 
-	ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC); //creates renderer here
-	if (ren == nullptr)
+	else
 	{
-		std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
-		cleanExit(1);
+		ren = win.createRenderer();
+		if (ren == nullptr)
+		{
+			std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
+			cleanExit(1);
+		}
+		Window::setRenderer(ren);
 	}
-	SDL_RenderSetLogicalSize(ren, 700, 945);
+
+
+	if (ZMQserver)
+	{
+		win.setWindowTitle("Server");
+	}
+
+	else
+	{
+		win.setWindowTitle("Client");
+	}
+
+	SDL_RenderSetLogicalSize(ren, winWidth, winHeight);
 	SDL_SetRenderDrawColor(ren, 20, 49, 59, 255); //set background colour
 	SDL_RenderClear(ren);
-
-	//Showloading screen
-
 
 	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
 	TextBox::setRenderer(ren); //set TextBox renderer
 
+	//Showloading screen
+	SDL_Rect rect = { 0, 0, winWidth, winHeight }; //size and position of sprite, x, y, w, h
+	SDL_Rect spritePosRect = { 0, 0, winWidth, winHeight }; //position of sprite in spritesheet, x, y, w, h
+
+	std::string imagePath = "./assets/loadingScreen.png"; //sprite image path
+	SpriteHandler loadingScreen(rect, spritePosRect, imagePath, false, -1, 1);
+
+	loadingScreen.drawSprite();
+	SDL_RenderPresent(ren);
+	
+
 	//---- sprite begin ----//
 	//---- player 1 begin ----//
-	//SDL_Surface *surface; //pointer to the SDL_Surface
-	//SDL_Texture *tex; //pointer to the SDL_Texture
-	SDL_Rect rect = {100, 800, 66, 92}; //size and position of sprite, x, y, w, h
-	SDL_Rect spritePosRect = {0, 0, 66, 92}; //position of sprite in spritesheet, x, y, w, h
+	rect = {100, 800, 66, 92}; //size and position of sprite, x, y, w, h
+	spritePosRect = {0, 0, 66, 92}; //position of sprite in spritesheet, x, y, w, h
 
-	std::string imagePath = "./assets/player_walk.png"; //sprite image path
+	imagePath = "./assets/player_walk.png"; //sprite image path
 	std::string spriteDataPath = "./assets/player_walk.txt"; //sprite image data (for animations) path
 
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding player sprite...");
@@ -740,6 +824,77 @@ int main( int argc, char* args[] )
 	}
 	//---- network end ----//
 
+
+	//---- menu begin ----//
+	//pauseSurface = SDL_CreateRGBSurface(0, 700, 945, 32, 0, 0, 0, 0);
+	//rect = { 0, 0, 700, 945 };
+	//SDL_FillRect(pauseSurface, &rect, SDL_MapRGB(pauseSurface->format, 255, 0, 0));
+	//pauseTex = SDL_CreateTextureFromSurface(ren, pauseSurface);
+
+	int menuGap = 0;
+	int increment = 50;
+	int menuPosX = (int)winWidth / 2 - 85;
+	int menuPosY = (int)winHeight / 2 - 100;
+
+	spritePosRect = { 0, 0, 190, 45 }; 
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 }; 
+	imagePath = "./assets/buttonResumeUp.png"; 
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1))); 
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonMusicUp.png"; 
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonFullscreenUp.png"; 
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonRestartUp.png"; 
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonQuitUp.png";
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	//pressed buttons
+	menuGap = 0;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 }; 
+	imagePath = "./assets/buttonResumeDown.png"; 
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonMusicDown.png"; 
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonFullscreenDown.png"; 
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonRestartDown.png"; 
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonQuitDown.png"; 
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+	//---- menu end ----//
+
+
+	//delay to display loading screen
+	SDL_Delay(2000);
 
 	while (!done) //loop until done flag is set)
 	{

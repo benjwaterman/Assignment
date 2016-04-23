@@ -332,7 +332,7 @@ void SpriteHandler::updateMovement(Position4 relativePosition)
 		_enableGravity = false;
 	}
 
-	//if not on ladder and not jumping enable gravity, prevent playing moving up or down
+	//else if not on ladder and not jumping enable gravity, prevent playing moving up or down
 	else if(!_onLadder && !_jumping)
 	{
 		_enableGravity = true;
@@ -360,9 +360,14 @@ void SpriteHandler::updateMovement(Position4 relativePosition)
 
 	//finally update the sprite position
 	_posRect.x += _spriteMovement.x;
-	if(_jumping || _onLadder || _enableGravity)
+	//prevent the playing from going up when not on a ladder
+	if(_jumping != _onLadder || _enableGravity)
 		_posRect.y += _spriteMovement.y;
+	//prevent playing from going double speed if jumping while on ladder
+	else if (_jumping && _onLadder)
+		_posRect.y += _spriteMovement.y/2;
 
+	//reset movement for next frame
 	_spriteMovement = { 0, 0 };
 }
 
