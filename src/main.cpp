@@ -37,6 +37,9 @@ bool canJump = true;
 int playerSpeed = 5.0f;
 Vector2 moveVector;
 int thisPlayer = 0; //for keeping track of which player the client/server is
+int otherPlayer = 1;
+int player1 = 0;
+int player2 = 1;
 
 //sound
 Mix_Music *bgMusic;
@@ -54,9 +57,11 @@ int score = 0;
 //multiplayer
 bool ZMQserver = false; //is this client the server
 zmq::context_t this_zmq_context(1);
-
-zmq::socket_t this_zmq_publisher(this_zmq_context, ZMQ_PUB); 
-zmq::socket_t this_zmq_subscriber(this_zmq_context, ZMQ_SUB);
+zmq::socket_t this_zmq_publisher1(this_zmq_context, ZMQ_PUB); 
+zmq::socket_t this_zmq_subscriber1(this_zmq_context, ZMQ_SUB);
+zmq::socket_t this_zmq_publisher2(this_zmq_context, ZMQ_PUB);
+zmq::socket_t this_zmq_subscriber2(this_zmq_context, ZMQ_SUB);
+int deleteScorePos = -1;
 
 //pause menu
 SDL_Surface *pauseSurface;
@@ -83,44 +88,90 @@ void cleanExit(int returnValue)
 	exit(returnValue);
 }
 
+void restartGame()
+{
+	spriteList.clear();
+	levelSpriteList.clear();
+}
+
 void handleNetwork()
 {
 	// message format
 	// 4 floats, separated by spaces, each with 6 digits, including 0 padding, and 3 digits of precision
 	// this will use 8 bytes per float (6 digits, the decimal, and the space)
 	// making 4 * 8 bytes = 32 bytes
-	const int messageLength = 32;
+	const int messageLength = 100;
 
 	//server
 	if (ZMQserver)
-	{
-		// create a message
-		zmq::message_t message(messageLength);
-
-		// add message content according to above format
-		snprintf((char *)message.data(), messageLength,
-			"%06.3f %06.3f %06.3f %06.3f ", float(spriteList[0]->getPos().x), float(spriteList[0]->getPos().y), float(spriteList[0]->getPos().w), float(spriteList[0]->getPos().h));
-
-		//std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
-
-		//  Send message to all subscribers
-		this_zmq_publisher.send(message);
-	}
-
-	//not server
-	else
 	{
 		// set up NULL filter - i.e. accept all messages
 		const std::string filter = "";
 
 		// set filter on subscriber (we don't really need to do this everyone time)
-		this_zmq_subscriber.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());
+		this_zmq_subscriber2.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());
 
 		// storage for a new message
 		zmq::message_t update;
 
 		// loop while there are messages (could be more than one)
-		while (this_zmq_subscriber.recv(&update, ZMQ_DONTWAIT))
+		while (this_zmq_subscriber2.recv(&update, ZMQ_DONTWAIT))
+		{
+			// get the data from the message as a char* (for debug output)
+			char* the_data = static_cast<char*>(update.data());
+
+			// debug output
+			std::cout << "Message received: \"" << std::string(the_data) << "\"" << std::endl;
+
+			// get the data as a streamstring (many other options than this)
+			std::istringstream iss(static_cast<char*>(update.data()));
+
+			//data format is floats, so have to read back to floats
+			int posX, posY, posW, posH, scoreObjPos;
+
+			// read the string stream into the four floats
+			iss >> posX >> posY >> posW >> posH >> scoreObjPos;
+
+			// use those floats to set the SDL_Rects (auto convert to int)
+			spriteList[otherPlayer]->setPos(posX, posY, posW, posH);
+			
+			if (scoreObjPos > -1)
+			{
+				//remove score object for this client
+				levelSpriteList.erase(levelSpriteList.begin() + scoreObjPos);
+				//increase score for this client
+				score += 10;
+			}
+		}
+
+		// create a message
+		zmq::message_t message(messageLength);
+
+		// add message content according to above format
+		snprintf((char *)message.data(), messageLength,
+			"%i %i %i %i %i %i %i", spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h, deleteScorePos, timeScore, bonusScore);
+
+		std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
+
+		//  Send message to all subscribers
+		this_zmq_publisher1.send(message);
+	}
+
+	//not server
+	else
+	{
+		/*
+		// set up NULL filter - i.e. accept all messages
+		const std::string filter = "";
+
+		// set filter on subscriber (we don't really need to do this everyone time)
+		this_zmq_subscriber1.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());
+
+		// storage for a new message
+		zmq::message_t update;
+
+		// loop while there are messages (could be more than one)
+		while (this_zmq_subscriber1.recv(&update, ZMQ_DONTWAIT))
 		{
 			// get the data from the message as a char* (for debug output)
 			char* the_data = static_cast<char*>(update.data());
@@ -138,7 +189,7 @@ void handleNetwork()
 			iss >> tx >> ty >> mx >> my;
 
 			// use those floats to set the SDL_Rects (auto convert to int)
-			spriteList[0]->setPos(tx, ty, mx, my);
+			spriteList[player1]->setPos(tx, ty, mx, my);
 			//texture_rect.y = ty;
 			//message_rect.x = mx;
 			//message_rect.y = my;
@@ -147,6 +198,68 @@ void handleNetwork()
 			//std::cout << "texture x, y: " << std::to_string(texture_rect.x) << ", " << std::to_string(texture_rect.y) << std::endl;
 			//std::cout << "message x, y: " << std::to_string(message_rect.x) << ", " << std::to_string(message_rect.y) << std::endl;
 		}
+
+		// create a message
+		zmq::message_t message(messageLength);
+
+		// add message content according to above format
+		snprintf((char *)message.data(), messageLength,
+			"%06.3f %06.3f %06.3f %06.3f ", float(spriteList[thisPlayer]->getPos().x), float(spriteList[thisPlayer]->getPos().y), float(spriteList[thisPlayer]->getPos().w), float(spriteList[thisPlayer]->getPos().h));
+
+		//std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
+
+		//  Send message to all subscribers
+		this_zmq_publisher2.send(message);*/
+		// set up NULL filter - i.e. accept all messages
+		const std::string filter = "";
+
+		// set filter on subscriber (we don't really need to do this everyone time)
+		this_zmq_subscriber1.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());
+
+		// storage for a new message
+		zmq::message_t update;
+
+		// loop while there are messages (could be more than one)
+		while (this_zmq_subscriber1.recv(&update, ZMQ_DONTWAIT))
+		{
+			// get the data from the message as a char* (for debug output)
+			char* the_data = static_cast<char*>(update.data());
+
+			// debug output
+			std::cout << "Message received: \"" << std::string(the_data) << "\"" << std::endl;
+
+			// get the data as a streamstring (many other options than this)
+			std::istringstream iss(static_cast<char*>(update.data()));
+
+			//data format is floats, so have to read back to floats
+			int posX, posY, posW, posH, scoreObjPos;
+
+			// read the string stream into the four floats
+			iss >> posX >> posY >> posW >> posH >> scoreObjPos >> timeScore >> bonusScore;
+
+			// use those floats to set the SDL_Rects (auto convert to int)
+			spriteList[otherPlayer]->setPos(posX, posY, posW, posH);
+			
+			if (scoreObjPos > -1)
+			{
+				//remove score object for this client
+				levelSpriteList.erase(levelSpriteList.begin() + scoreObjPos);
+				//increase score for this client
+				score += 10;
+			}
+		}
+
+		// create a message
+		zmq::message_t message(messageLength);
+
+		// add message content according to above format
+		snprintf((char *)message.data(), messageLength,
+			"%i %i %i %i %i", spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h, deleteScorePos);
+
+		std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
+
+		//  Send message to all subscribers
+		this_zmq_publisher2.send(message);
 	}
 }
 
@@ -170,6 +283,7 @@ void handleInput()
 					done = true;
 
 				case SDLK_d:
+				case SDLK_RIGHT:
 					if (!paused)
 					{
 						movingRight = true;
@@ -178,6 +292,7 @@ void handleInput()
 					break;
 
 				case SDLK_a:
+				case SDLK_LEFT:
 					if (!paused)
 					{
 						movingLeft = true;
@@ -186,6 +301,7 @@ void handleInput()
 					break;
 
 				case SDLK_w:
+				case SDLK_UP:
 					if (!paused)
 						movingUp = true;
 					else
@@ -198,6 +314,7 @@ void handleInput()
 					break;
 
 				case SDLK_s:
+				case SDLK_DOWN:
 					if (!paused)
 						movingDown = true;
 					else
@@ -232,9 +349,12 @@ void handleInput()
 							win.fullscreenToggle();
 							break;
 
+						//restart
 						case 3:
+							restartGame();
 							break;
 
+						//exit
 						case 4:
 							cleanExit(0);
 							break;
@@ -262,18 +382,22 @@ void handleInput()
 			switch (event.key.keysym.sym)
 			{
 			case SDLK_d:
+			case SDLK_RIGHT:
 				movingRight = false;
 				break;
 
 			case SDLK_a:
+			case SDLK_LEFT:
 				movingLeft = false;
 				break;
 
 			case SDLK_w:
+			case SDLK_UP:
 				movingUp = false;
 				break;
 
 			case SDLK_s:
+			case SDLK_DOWN:
 				movingDown = false;
 				break;
 			}
@@ -286,246 +410,106 @@ void handleInput()
 // tag::updateSimulation[]
 void updateSimulation(double simLength = 0.02) //update simulation with an amount of time to simulate for (in seconds)
 {
+	deleteScorePos = -1;
+
+	Position4 relativePosition;
+	Vector2 playerMovement(0, 0);
+	if (movingRight)
+	{
+		playerMovement = { playerSpeed, 0 };
+		relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+		spriteList[thisPlayer]->moveSprite(playerMovement);
+	}
+
+	else if (movingLeft)
+	{
+		playerMovement = { -playerSpeed, 0 };
+		relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+		spriteList[thisPlayer]->moveSprite(playerMovement);
+	}
+
+	else if (movingUp)
+	{
+		playerMovement = {0, -playerSpeed};
+		relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+		if (relativePosition.onLadder)
+			spriteList[thisPlayer]->moveSprite(playerMovement);
+	}
+
+	else if (movingDown)
+	{
+		playerMovement = { 0, playerSpeed };
+		relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+		if(relativePosition.onLadder)
+			spriteList[thisPlayer]->moveSprite(playerMovement);
+	}
+
+	//not moving
+	else
+	{
+		relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], Vector2(0, 0), levelSpriteList);
+	}
+
+	//jumping
+	if (jumping)
+	{
+		switch (spriteList[thisPlayer]->jump(5, 60)) //speed and height of jump
+		{
+		case true: //if true is returned, player is still jumping
+			jumping = true;
+			canJump = false;
+			break;
+
+		case false: //if false is returned player has reached the max height of the jump and so is set to no longer be jumping
+			jumping = false;
+			break;
+		}
+	}
+
+	if (!jumping && !canJump)
+	{
+		if (relativePosition.beneath.type == 1)
+		{
+			canJump = true;
+		}
+	}
+		
+	//animation
+	//if player is moving left or right, but not up or down and not on a ladder
+	if (playerMovement.x != 0 && playerMovement.y == 0 && !relativePosition.onLadder)
+	{
+		spriteList[thisPlayer]->animateSprite(5, 5, 30, true);
+	}
+
+	//player moving up or down, not left or right and is on ladder
+	else if (playerMovement.y != 0 && playerMovement.x == 0 && relativePosition.onLadder)
+	{
+		spriteList[thisPlayer]->animateSprite(11, 2, 10, true);
+	}
+
+	//not moving
+	else
+	{
+		//set idle animations
+		if (relativePosition.onLadder)
+			spriteList[thisPlayer]->animateSprite(12, 1, 5, true);
+		else
+			spriteList[thisPlayer]->setIdle();
+	}
+
+	//add to score and remove sprite from level
+	if (relativePosition.gainScore)
+	{
+		score += 10;
+		deleteScorePos = relativePosition.elementInArray;
+		levelSpriteList.erase(levelSpriteList.begin() + relativePosition.elementInArray);
+	}
+
+	spriteList[thisPlayer]->updateMovement(relativePosition);
+	
+	//server keeps control of score and times
 	if (ZMQserver)
 	{
-		/*bool onLadder;
-		canFall = true; //always start each frame as being able to fall, unless a collision occurs
-
-		//get any collisions and their direction
-		Position4 relativePosition = CollisionHandler().CheckCollisions(spriteList[0], levelSpriteList);
-
-		//checks collisions and sets variables 
-		//if player is on ladder
-		relativePosition.onLadder ? onLadder = true : onLadder = false;
-
-		if (relativePosition.beneath.type == 1 && relativePosition.above.type == 1 && relativePosition.left.type == 1 && relativePosition.right.type == 1)
-		{
-			spriteList[0]->setPos(spriteList[0]->getLastClearPos());
-		}
-
-		if (relativePosition.above.isTrue && relativePosition.above.type == 1)
-		{
-			movingUp = false;
-			spriteList[0]->setSpriteY(spriteList[0]->getOldPos().y);
-		}
-
-		if (relativePosition.beneath.isTrue && relativePosition.beneath.type == 1)
-		{
-			movingDown = false;
-			canFall = false;
-
-			spriteList[0]->setPos(spriteList[0]->getLastClearPos());
-			if (onLadder)
-			{
-				spriteList[0]->setSpriteY(spriteList[0]->getOldPos().y - 2); //stops the player partially clipping through floor when on ladder
-			}
-		}
-
-		if (relativePosition.left.isTrue && relativePosition.left.type == 1)
-		{
-			movingLeft = false;
-			spriteList[0]->setSpriteX(spriteList[0]->getOldPos().x);
-		}
-
-		if (relativePosition.right.isTrue && relativePosition.right.type == 1)
-		{
-			movingRight = false;
-			spriteList[0]->setSpriteX(spriteList[0]->getOldPos().x);
-		}
-
-		//add to score and remove sprite from level
-		if (relativePosition.gainScore)
-		{
-			score += 10;
-			levelSpriteList.erase(levelSpriteList.begin() + relativePosition.elementInArray);
-		}
-
-		//cant move up or down if not on ladder
-		if (!onLadder)// && !(relativePosition.beneath.isTrue && relativePosition.beneath.type == 2))
-		{
-			movingUp = false;
-			movingDown = false;
-		}
-
-		//stop player falling and jumping when on ladder
-		if (onLadder)
-		{
-			canFall = false;
-			jumping = false;
-			if (!movingLeft && !movingRight)
-			{
-				spriteList[0]->setSpriteX(relativePosition.ladderCenter); //makes the player "stick" to the ladder so they dont clip into terrain when going up and down
-			}
-		}
-
-		if (canFall && !jumping)
-		{
-			for (auto const& sprite : spriteList) //apply gravity to all sprites (will only actually apply gravity if it gravity is enabled on that sprite)
-				sprite->gravity();
-			jumping = false;
-		}
-
-		//if not falling
-		if (!canFall)
-		{
-			if ((movingLeft || movingRight) && !onLadder) //moving left or right
-				spriteList[0]->animateSprite(5, 5, 30, true);
-
-			if (movingLeft && !movingRight) //moving left
-			{
-				spriteList[0]->moveSprite(Vector2(-playerSpeed, 0));
-				//TODO check walkSound != nullptr
-				if (Mix_Playing(1) != 1)
-					Mix_PlayChannel(1, walkSound, 0);
-			}
-
-			if (movingRight && !movingLeft) //moving right
-			{
-				spriteList[0]->moveSprite(Vector2(playerSpeed, 0));
-				if (Mix_Playing(1) != 1)
-					Mix_PlayChannel(1, walkSound, 0);
-			}
-
-			if (movingUp || movingDown) //moving up or down
-				spriteList[0]->animateSprite(11, 2, 10, true);
-
-			if (movingUp && !movingDown) //moving up
-			{
-				spriteList[0]->moveSprite(Vector2(0, -playerSpeed));
-				if (Mix_Playing(1) != 1)
-					Mix_PlayChannel(1, walkSound, 0);
-			}
-
-			if (movingDown && !movingUp) //moving down
-			{
-				spriteList[0]->moveSprite(Vector2(0, playerSpeed));
-				if (Mix_Playing(1) != 1)
-					Mix_PlayChannel(1, walkSound, 0);
-			}
-		}
-
-		if (jumping) //when jump is pressed
-		{
-			switch (spriteList[0]->jump(5, 60)) //speed and height of jump
-			{
-			case true: //if true is returned, player is still jumping
-				break;
-
-			case false: //if false is returned player has reached the max height of the jump and so is set to no longer be jumping
-				jumping = false;
-				break;
-			}
-		}
-
-		if ((!movingRight && !movingLeft || movingLeft && movingRight) && (!movingUp && !movingDown || movingUp && movingDown)) //player not moving
-		{
-			if (onLadder)
-			{
-				spriteList[0]->animateSprite(12, 1, 5, true);
-			}
-			else
-				spriteList[0]->setIdle();
-
-			Mix_HaltChannel(1); //stops sound playing when stopping moving, in case half way through sound
-		}
-
-		//apply all movement changes
-		spriteList[0]->updateMovement();*/
-
-		Position4 relativePosition;
-		Vector2 playerMovement(0, 0);
-		if (movingRight)
-		{
-			playerMovement = { playerSpeed, 0 };
-			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
-			spriteList[thisPlayer]->moveSprite(playerMovement);
-		}
-
-		else if (movingLeft)
-		{
-			playerMovement = { -playerSpeed, 0 };
-			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
-			spriteList[thisPlayer]->moveSprite(playerMovement);
-		}
-
-		else if (movingUp)
-		{
-			playerMovement = {0, -playerSpeed};
-			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
-			if (relativePosition.onLadder)
-				spriteList[thisPlayer]->moveSprite(playerMovement);
-		}
-
-		else if (movingDown)
-		{
-			playerMovement = { 0, playerSpeed };
-			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
-			if(relativePosition.onLadder)
-				spriteList[thisPlayer]->moveSprite(playerMovement);
-		}
-
-		//not moving
-		else
-		{
-			relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], Vector2(0, 0), levelSpriteList);
-		}
-
-		//jumping
-		if (jumping)
-		{
-			switch (spriteList[thisPlayer]->jump(5, 60)) //speed and height of jump
-			{
-			case true: //if true is returned, player is still jumping
-				jumping = true;
-				canJump = false;
-				break;
-
-			case false: //if false is returned player has reached the max height of the jump and so is set to no longer be jumping
-				jumping = false;
-				break;
-			}
-		}
-
-		if (!jumping && !canJump)
-		{
-			if (relativePosition.beneath.type == 1)
-			{
-				canJump = true;
-			}
-		}
-
-		//animation
-		//if player is moving left or right, but not up or down and not on a ladder
-		if (playerMovement.x != 0 && playerMovement.y == 0 && !relativePosition.onLadder)
-		{
-			spriteList[thisPlayer]->animateSprite(5, 5, 30, true);
-		}
-
-		//player moving up or down, not left or right and is on ladder
-		else if (playerMovement.y != 0 && playerMovement.x == 0 && relativePosition.onLadder)
-		{
-			spriteList[thisPlayer]->animateSprite(11, 2, 10, true);
-		}
-
-		//not moving
-		else
-		{
-			//set idle animations
-			if (relativePosition.onLadder)
-				spriteList[thisPlayer]->animateSprite(12, 1, 5, true);
-			else
-				spriteList[thisPlayer]->setIdle();
-		}
-
-		//add to score and remove sprite from level
-		if (relativePosition.gainScore)
-		{
-			score += 10;
-			levelSpriteList.erase(levelSpriteList.begin() + relativePosition.elementInArray);
-		}
-
-		spriteList[thisPlayer]->updateMovement(relativePosition);
-
 		//timeScore decreases by 1 for every 0.5 second starting at 900, bonus goes down by 10 for every 5 timeScore that goes down starting at 1000	
 		currentTime = Clock::now();
 		deltaTime += std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - previousTime).count();
@@ -541,21 +525,22 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 
 			deltaTime = 0;
 		}
-
-		std::string timeScoreText = std::to_string(timeScore);
-		std::string bonusScoreText = std::to_string(bonusScore);
-		std::string scoreText = std::to_string(score);
-		textList[5]->setText("Time " + timeScoreText);
-		textList[4]->setText("Bonus " + bonusScoreText);
-
-		std::string zeros = "";
-		for (int i = scoreText.length(); i < 6; i++)
-			zeros += "0";
-		textList[1]->setText(zeros + scoreText);
-
-		previousTime = Clock::now();
 	}
 
+	std::string timeScoreText = std::to_string(timeScore);
+	std::string bonusScoreText = std::to_string(bonusScore);
+	std::string scoreText = std::to_string(score);
+	textList[5]->setText("Time " + timeScoreText);
+	textList[4]->setText("Bonus " + bonusScoreText);
+
+	std::string zeros = "";
+	for (int i = scoreText.length(); i < 6; i++)
+		zeros += "0";
+	textList[1]->setText(zeros + scoreText);
+
+	previousTime = Clock::now();
+
+	//handle network activity
 	handleNetwork();
 }
 
@@ -676,15 +661,18 @@ int main( int argc, char* args[] )
 		Window::setRenderer(ren);
 	}
 
-
 	if (ZMQserver)
 	{
-		win.setWindowTitle("Server");
+		win.setWindowTitle("Server: Player 1");
+		thisPlayer = 0;
+		otherPlayer = 1;
 	}
 
 	else
 	{
-		win.setWindowTitle("Client");
+		win.setWindowTitle("Client: Player 2");
+		thisPlayer = 1;
+		otherPlayer = 0;
 	}
 
 	SDL_RenderSetLogicalSize(ren, winWidth, winHeight);
@@ -703,11 +691,26 @@ int main( int argc, char* args[] )
 
 	loadingScreen.drawSprite();
 	SDL_RenderPresent(ren);
+
+	//---- network begin ----//
+	if (ZMQserver)
+	{
+		this_zmq_publisher1.bind("tcp://*:5556");
+		this_zmq_subscriber2.connect("tcp://localhost:5557");
+	}
+
+	else
+	{
+		//std::cout << "Subscribing to server ..." << std::endl;
+		this_zmq_publisher2.bind("tcp://*:5557");
+		this_zmq_subscriber1.connect("tcp://localhost:5556");
+	}
+	//---- network end ----//
 	
 
 	//---- sprite begin ----//
 	//---- player 1 begin ----//
-	rect = {100, 800, 66, 92}; //size and position of sprite, x, y, w, h
+	rect = {35, 849, 66, 92}; //size and position of sprite, x, y, w, h
 	spritePosRect = {0, 0, 66, 92}; //position of sprite in spritesheet, x, y, w, h
 
 	imagePath = "./assets/player_walk.png"; //sprite image path
@@ -717,18 +720,35 @@ int main( int argc, char* args[] )
 	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 0.5))); //adds sprite to list
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Player sprite added");
 
-	spriteList[0]->populateAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
+	spriteList[player1]->populateAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
 
 	//create idle
 	imagePath = "./assets/player_idle.png";
 	rect = { 0, 0, 66, 92 }; 
 	spritePosRect = { 0, 0, 66, 92 }; 
 
-	spriteList[0]->createIdleSprite(rect, spritePosRect, imagePath); //creates idle sprite for player when not moving
+	spriteList[player1]->createIdleSprite(rect, spritePosRect, imagePath); //creates idle sprite for player when not moving
 	//---- player 1 end ----//
 
 	//---- player 2 begin ----//
-	
+	rect = { 665, 864, 66, 92 }; //size and position of sprite, x, y, w, h
+	spritePosRect = { 0, 0, 66, 92 }; //position of sprite in spritesheet, x, y, w, h
+
+	imagePath = "./assets/player_walk.png"; //sprite image path
+	spriteDataPath = "./assets/player_walk.txt"; //sprite image data (for animations) path
+
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding player 2 sprite...");
+	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 0.5))); //adds sprite to list
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Player 2 sprite added");
+
+	spriteList[player2]->populateAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
+
+	//create idle
+	imagePath = "./assets/player_idle.png";
+	rect = { 0, 0, 66, 92 };
+	spritePosRect = { 0, 0, 66, 92 };
+
+	spriteList[player2]->createIdleSprite(rect, spritePosRect, imagePath); //creates idle sprite for player when not moving
 	//---- player 2 end ----//
 
 	//---- ground begin ----//
@@ -773,7 +793,10 @@ int main( int argc, char* args[] )
 	messageRect = { 150, 20, 110, 30 };
 	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
 	
-	theString = "Player 1";
+	if(thisPlayer == 0)
+		theString = "Player 1";
+	else 
+		theString = "Player 2";
 	messageRect = { 20, 70, 120, 30 };
 	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
 
@@ -809,21 +832,6 @@ int main( int argc, char* args[] )
 		Mix_PlayMusic(bgMusic, -1);
 	}
 	//---- sound end ----//
-
-
-	//---- network begin ----//
-	if (ZMQserver)
-	{
-		this_zmq_publisher.bind("tcp://*:5556");
-	}
-
-	else
-	{
-		std::cout << "Subscribing to server ..." << std::endl;
-		this_zmq_subscriber.connect("tcp://localhost:5556");
-	}
-	//---- network end ----//
-
 
 	//---- menu begin ----//
 	//pauseSurface = SDL_CreateRGBSurface(0, 700, 945, 32, 0, 0, 0, 0);

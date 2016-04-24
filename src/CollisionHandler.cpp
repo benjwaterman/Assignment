@@ -87,7 +87,7 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 							//work out the direction the collision occured
 							if (CheckBeneath(oldPlayerSpriteMaxY, playerSpriteMaxY, levelSpriteMinY))
 							{
-								std::cout << "Collision detected beneath" << std::endl;
+								//std::cout << "Collision detected beneath" << std::endl;
 								_relativePosition.beneath.isTrue = true;
 								_relativePosition.beneath.type = colliderType;
 
@@ -97,7 +97,7 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 
 							if (CheckAbove(oldPlayerSpriteMinY, playerSpriteMinY, levelSpriteMaxY)) 
 							{
-								std::cout << "Collision detected above" << std::endl;
+								//std::cout << "Collision detected above" << std::endl;
 								_relativePosition.above.isTrue = true;
 								_relativePosition.above.type = colliderType;
 							}
@@ -109,14 +109,14 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 
 							if ((playerSpriteMaxY - 5 > levelSpriteMinY) && CheckRight(oldPlayerSpriteMaxX, playerSpriteMaxX, levelSpriteMinX)) // - 5 required to stop clipping with floor
 							{
-								std::cout << "Collision detected right" << std::endl;
+								//std::cout << "Collision detected right" << std::endl;
 								_relativePosition.right.isTrue = true;
 								_relativePosition.right.type = colliderType;
 							}
 
 							if ((playerSpriteMaxY - 5 > levelSpriteMinY) && CheckLeft(oldPlayerSpriteMinX, playerSpriteMinX, levelSpriteMaxX))
 							{
-								std::cout << "Collision detected left" << std::endl;
+								//std::cout << "Collision detected left" << std::endl;
 								_relativePosition.left.isTrue = true;
 								_relativePosition.left.type = colliderType;
 							}
@@ -126,7 +126,30 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 			}
 		}
 
+		//bounds of level check
+		if (playerSpriteMinX <= 0)
+		{
+			_relativePosition.left.isTrue = true;
+			_relativePosition.left.type = 1;
+		}
 
+		if (playerSpriteMaxX >= 700)
+		{
+			_relativePosition.right.isTrue = true;
+			_relativePosition.right.type = 1;
+		}
+
+		if (playerSpriteMaxY >= 945)
+		{
+			_relativePosition.beneath.isTrue = true;
+			_relativePosition.beneath.type = 1;
+		}
+
+		if (playerSpriteMinY <= 0)
+		{
+			_relativePosition.above.isTrue = true;
+			_relativePosition.above.type = 1;
+		}
 
 		/*
 		//vertical checks 
@@ -218,7 +241,7 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 	//last known location with no solid collisions
 	if (_relativePosition.beneath.type != 1 && _relativePosition.above.type != 1 && _relativePosition.left.type != 1 && _relativePosition.right.type != 1)
 	{
-		std::cout << "No collision detected" << std::endl;
+		//std::cout << "No collision detected" << std::endl;
 		player->setLastClearPos(player->getPos());
 	}
 
