@@ -7,6 +7,9 @@
 
 typedef std::chrono::high_resolution_clock Clock;
 
+//function definitions
+void restartGame();
+
 //window
 std::string exeName;
 SDL_Renderer *ren; //pointer to the SDL_Renderer
@@ -88,12 +91,6 @@ void cleanExit(int returnValue)
 	exit(returnValue);
 }
 
-void restartGame()
-{
-	spriteList.clear();
-	levelSpriteList.clear();
-}
-
 void handleNetwork()
 {
 	// message format
@@ -127,10 +124,10 @@ void handleNetwork()
 			std::istringstream iss(static_cast<char*>(update.data()));
 
 			//data format is floats, so have to read back to floats
-			int posX, posY, posW, posH, scoreObjPos;
+			int posX, posY, posW, posH, scoreObjPos, isPaused;
 
 			// read the string stream into the four floats
-			iss >> posX >> posY >> posW >> posH >> scoreObjPos;
+			iss >> posX >> posY >> posW >> posH >> scoreObjPos >> isPaused;
 
 			// use those floats to set the SDL_Rects (auto convert to int)
 			spriteList[otherPlayer]->setPos(posX, posY, posW, posH);
@@ -139,17 +136,29 @@ void handleNetwork()
 			{
 				//remove score object for this client
 				levelSpriteList.erase(levelSpriteList.begin() + scoreObjPos);
+
 				//increase score for this client
 				score += 10;
 			}
+
+			if (isPaused)
+				paused = true;
+			else
+				isPaused = false;
 		}
 
 		// create a message
 		zmq::message_t message(messageLength);
 
+		int isPaused;
+		if (paused)
+			isPaused = 1;
+		else
+			isPaused = 0;
+
 		// add message content according to above format
 		snprintf((char *)message.data(), messageLength,
-			"%i %i %i %i %i %i %i", spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h, deleteScorePos, timeScore, bonusScore);
+			"%i %i %i %i %i %i %i %i", spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h, deleteScorePos, timeScore, bonusScore, isPaused);
 
 		std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
 
@@ -160,107 +169,56 @@ void handleNetwork()
 	//not server
 	else
 	{
-		/*
-		// set up NULL filter - i.e. accept all messages
 		const std::string filter = "";
 
-		// set filter on subscriber (we don't really need to do this everyone time)
 		this_zmq_subscriber1.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());
 
-		// storage for a new message
 		zmq::message_t update;
 
-		// loop while there are messages (could be more than one)
 		while (this_zmq_subscriber1.recv(&update, ZMQ_DONTWAIT))
 		{
-			// get the data from the message as a char* (for debug output)
 			char* the_data = static_cast<char*>(update.data());
 
-			// debug output
 			std::cout << "Message received: \"" << std::string(the_data) << "\"" << std::endl;
 
-			// get the data as a streamstring (many other options than this)
 			std::istringstream iss(static_cast<char*>(update.data()));
 
-			//data format is floats, so have to read back to floats
-			float tx, ty, mx, my;
+			int posX, posY, posW, posH, scoreObjPos, isPaused;
 
-			// read the string stream into the four floats
-			iss >> tx >> ty >> mx >> my;
+			iss >> posX >> posY >> posW >> posH >> scoreObjPos >> timeScore >> bonusScore >> isPaused;
 
-			// use those floats to set the SDL_Rects (auto convert to int)
-			spriteList[player1]->setPos(tx, ty, mx, my);
-			//texture_rect.y = ty;
-			//message_rect.x = mx;
-			//message_rect.y = my;
-
-			// Debug output
-			//std::cout << "texture x, y: " << std::to_string(texture_rect.x) << ", " << std::to_string(texture_rect.y) << std::endl;
-			//std::cout << "message x, y: " << std::to_string(message_rect.x) << ", " << std::to_string(message_rect.y) << std::endl;
-		}
-
-		// create a message
-		zmq::message_t message(messageLength);
-
-		// add message content according to above format
-		snprintf((char *)message.data(), messageLength,
-			"%06.3f %06.3f %06.3f %06.3f ", float(spriteList[thisPlayer]->getPos().x), float(spriteList[thisPlayer]->getPos().y), float(spriteList[thisPlayer]->getPos().w), float(spriteList[thisPlayer]->getPos().h));
-
-		//std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
-
-		//  Send message to all subscribers
-		this_zmq_publisher2.send(message);*/
-		// set up NULL filter - i.e. accept all messages
-		const std::string filter = "";
-
-		// set filter on subscriber (we don't really need to do this everyone time)
-		this_zmq_subscriber1.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());
-
-		// storage for a new message
-		zmq::message_t update;
-
-		// loop while there are messages (could be more than one)
-		while (this_zmq_subscriber1.recv(&update, ZMQ_DONTWAIT))
-		{
-			// get the data from the message as a char* (for debug output)
-			char* the_data = static_cast<char*>(update.data());
-
-			// debug output
-			std::cout << "Message received: \"" << std::string(the_data) << "\"" << std::endl;
-
-			// get the data as a streamstring (many other options than this)
-			std::istringstream iss(static_cast<char*>(update.data()));
-
-			//data format is floats, so have to read back to floats
-			int posX, posY, posW, posH, scoreObjPos;
-
-			// read the string stream into the four floats
-			iss >> posX >> posY >> posW >> posH >> scoreObjPos >> timeScore >> bonusScore;
-
-			// use those floats to set the SDL_Rects (auto convert to int)
 			spriteList[otherPlayer]->setPos(posX, posY, posW, posH);
 			
 			if (scoreObjPos > -1)
 			{
-				//remove score object for this client
 				levelSpriteList.erase(levelSpriteList.begin() + scoreObjPos);
-				//increase score for this client
 				score += 10;
 			}
+
+			if (isPaused)
+				paused = true;
+			else
+				isPaused = false;
 		}
 
-		// create a message
 		zmq::message_t message(messageLength);
 
-		// add message content according to above format
+		int isPaused;
+		if (paused)
+			isPaused = 1;
+		else
+			isPaused = 0;
+
 		snprintf((char *)message.data(), messageLength,
-			"%i %i %i %i %i", spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h, deleteScorePos);
+			"%i %i %i %i %i %i", spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h, deleteScorePos, isPaused);
 
 		std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
 
-		//  Send message to all subscribers
 		this_zmq_publisher2.send(message);
 	}
+
+	//reset variable
+	deleteScorePos = -1;
 }
 
 void handleInput()
@@ -410,8 +368,6 @@ void handleInput()
 // tag::updateSimulation[]
 void updateSimulation(double simLength = 0.02) //update simulation with an amount of time to simulate for (in seconds)
 {
-	deleteScorePos = -1;
-
 	Position4 relativePosition;
 	Vector2 playerMovement(0, 0);
 	if (movingRight)
@@ -432,6 +388,7 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 	{
 		playerMovement = {0, -playerSpeed};
 		relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+		//can only go up or down if on ladder
 		if (relativePosition.onLadder)
 			spriteList[thisPlayer]->moveSprite(playerMovement);
 	}
@@ -539,35 +496,32 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 	textList[1]->setText(zeros + scoreText);
 
 	previousTime = Clock::now();
-
-	//handle network activity
-	handleNetwork();
 }
 
 void render()
 {
-	//First clear the renderer
+	//first clear the renderer
 	SDL_RenderClear(ren);
 
-	//Draw the sprite
+	//draw the sprite
 	for (auto const& sprite : levelSpriteList) //loops through all level objects in list and calls their draw (render) function
 	{
 		sprite->drawSprite();
 	}
 
-	//Draw the level
+	//draw the level
 	for (auto const& sprite : spriteList) //loops through all player sprite objects in list and calls their draw (render) function
 	{
 		sprite->drawSprite();
 	}
 
-	//Draw the text
+	//draw the text
 	for (auto const& text : textList) //loops through all TextBox objects in list and calls their draw (render) function
 	{
 		text->drawText();
 	}
 
-	//If paused, draw pause menu
+	//if paused, draw pause menu
 	if (paused)
 	{
 		
@@ -579,7 +533,7 @@ void render()
 		menuSpriteListSelected[menuItem]->drawSprite();
 	}
 
-	//Update the screen
+	//update the screen
 	SDL_RenderPresent(ren);
 }
 
@@ -594,8 +548,136 @@ void fpsLimiter(std::chrono::steady_clock::time_point time) //limits to 60fps
 	SDL_Delay(timeToWait);
 }
 
-void loadAssets()
+void loadPlayers()
 {
+	SDL_Rect rect;
+	SDL_Rect spritePosRect;
+	std::string imagePath;
+
+	//---- player 1 begin ----//
+	rect = { 35, 849, 66, 92 }; //size and position of sprite, x, y, w, h
+	spritePosRect = { 0, 0, 66, 92 }; //position of sprite in spritesheet, x, y, w, h
+
+	imagePath = "./assets/player_walk.png"; //sprite image path
+	std::string spriteDataPath = "./assets/player_walk.txt"; //sprite image data (for animations) path
+
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding player sprite...");
+	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 0.5))); //adds sprite to list
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Player sprite added");
+
+	spriteList[player1]->populateAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
+
+	//create idle
+	imagePath = "./assets/player_idle.png";
+	rect = { 0, 0, 66, 92 };
+	spritePosRect = { 0, 0, 66, 92 };
+
+	spriteList[player1]->createIdleSprite(rect, spritePosRect, imagePath); //creates idle sprite for player when not moving
+	//---- player 1 end ----//
+
+	//---- player 2 begin ----//
+	rect = { 665, 864, 66, 92 }; //size and position of sprite, x, y, w, h
+	spritePosRect = { 0, 0, 66, 92 }; //position of sprite in spritesheet, x, y, w, h
+
+	imagePath = "./assets/player_walk.png"; //sprite image path
+	spriteDataPath = "./assets/player_walk.txt"; //sprite image data (for animations) path
+
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding player 2 sprite...");
+	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 0.5))); //adds sprite to list
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Player 2 sprite added");
+
+	spriteList[player2]->populateAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
+
+	//create idle
+	imagePath = "./assets/player_idle.png";
+	rect = { 0, 0, 66, 92 };
+	spritePosRect = { 0, 0, 66, 92 };
+
+	spriteList[player2]->createIdleSprite(rect, spritePosRect, imagePath); //creates idle sprite for player when not moving
+	//---- player 2 end ----//
+}
+
+void loadLevel()
+{
+	SDL_Rect rect;
+	SDL_Rect spritePosRect;
+
+	rect = { 0, 0, 70, 70 };
+	spritePosRect = { 0, 0, 70, 70 };
+
+	LevelBuilder level01;
+	std::string levelPath = "./assets/level01.txt";
+	levelSpriteList = level01.getLevel(levelPath);
+}
+
+void loadText()
+{
+	if (TTF_Init() == -1)
+	{
+		std::cout << "TTF_Init Failed: " << TTF_GetError() << std::endl;
+		cleanExit(1);
+	}
+
+	TTF_Font* theFont = TTF_OpenFont("./assets/Hack-Regular.ttf", 96); //font point size //Hack-Regular
+	if (theFont == nullptr)
+	{
+		std::cout << "TTF_OpenFont Error: " << TTF_GetError() << std::endl;
+		cleanExit(1);
+	}
+
+	SDL_Color theColour = { 255, 255, 255 }; //text colour
+	SDL_Rect messageRect; //x pos, y pos, width, height
+	std::string theString;
+
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding text...");
+
+	theString = "Score";
+	messageRect = { 20, 20, 100, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect))); //adds text to list
+
+	theString = "000000"; //score number
+	messageRect = { 150, 20, 110, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+
+	if (thisPlayer == 0)
+		theString = "Player 1";
+	else
+		theString = "Player 2";
+	messageRect = { 20, 70, 120, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+
+	theString = "Level 01";
+	messageRect = { 160, 70, 150, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+
+	theString = "Bonus 0000";
+	messageRect = { 330, 70, 180, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+
+	theString = "Time 000";
+	messageRect = { 540, 70, 150, 30 };
+	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Text added");
+}
+
+void loadSound()
+{
+	//load background music
+	bgMusic = Mix_LoadMUS("./assets/background_music.ogg");
+	if (bgMusic == NULL)
+	{
+		std::cout << "Background music SDL_mixer Error: " << Mix_GetError() << std::endl;
+		cleanExit(1);
+	}
+
+	//play bg music
+	if (Mix_PlayingMusic() == 0)
+	{
+		Mix_PlayMusic(bgMusic, -1);
+	}
+
+	//initialise walk sound
 	if (walkSound == nullptr)
 	{
 		walkSound = Mix_LoadWAV("./assets/player_footstep.ogg");
@@ -607,6 +689,132 @@ void loadAssets()
 
 		Mix_VolumeChunk(walkSound, 50); //set volume of footsteps
 	}
+}
+
+void loadMenu()
+{
+	SDL_Rect rect;
+	SDL_Rect spritePosRect;
+	std::string imagePath;
+
+	//pauseSurface = SDL_CreateRGBSurface(0, 700, 945, 32, 0, 0, 0, 0);
+	//rect = { 0, 0, 700, 945 };
+	//SDL_FillRect(pauseSurface, &rect, SDL_MapRGB(pauseSurface->format, 255, 0, 0));
+	//pauseTex = SDL_CreateTextureFromSurface(ren, pauseSurface);
+
+	int menuGap = 0;
+	int increment = 50;
+	int menuPosX = (int)winWidth / 2 - 85;
+	int menuPosY = (int)winHeight / 2 - 100;
+
+	spritePosRect = { 0, 0, 190, 45 };
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonResumeUp.png";
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonMusicUp.png";
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonFullscreenUp.png";
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonRestartUp.png";
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonQuitUp.png";
+	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	//pressed buttons
+	menuGap = 0;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonResumeDown.png";
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonMusicDown.png";
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonFullscreenDown.png";
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonRestartDown.png";
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+
+	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
+	imagePath = "./assets/buttonQuitDown.png";
+	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
+	menuGap += increment;
+}
+
+void loadNetwork()
+{
+	if (ZMQserver)
+	{
+		win.setWindowTitle("Server: Player 1");
+		thisPlayer = 0;
+		otherPlayer = 1;
+		this_zmq_publisher1.bind("tcp://*:5556");
+		this_zmq_subscriber2.connect("tcp://localhost:5557");
+	}
+
+	else
+	{
+		win.setWindowTitle("Client: Player 2");
+		thisPlayer = 1;
+		otherPlayer = 0;
+		this_zmq_publisher2.bind("tcp://*:5557");
+		this_zmq_subscriber1.connect("tcp://localhost:5556");
+	}
+}
+
+void loadLoadingScreen()
+{
+	//Show loading screen
+	SDL_Rect rect = { 0, 0, winWidth, winHeight }; //size and position of sprite, x, y, w, h
+	SDL_Rect spritePosRect = { 0, 0, winWidth, winHeight }; //position of sprite in spritesheet, x, y, w, h
+
+	std::string imagePath = "./assets/loadingScreen.png"; //sprite image path
+	SpriteHandler loadingScreen(rect, spritePosRect, imagePath, false, -1, 1);
+
+	loadingScreen.drawSprite();
+	SDL_RenderPresent(ren);
+}
+
+void loadAssets()
+{
+	loadLoadingScreen();
+	loadNetwork();
+	loadPlayers();
+	loadLevel();
+	loadText();
+	loadSound();
+	loadMenu();
+}
+
+void restartGame()
+{
+	spriteList.clear();
+	levelSpriteList.clear();
+
+	loadPlayers();
+	loadLevel();
 }
 
 int main( int argc, char* args[] )
@@ -658,248 +866,18 @@ int main( int argc, char* args[] )
 			std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
 			cleanExit(1);
 		}
-		Window::setRenderer(ren);
-	}
-
-	if (ZMQserver)
-	{
-		win.setWindowTitle("Server: Player 1");
-		thisPlayer = 0;
-		otherPlayer = 1;
-	}
-
-	else
-	{
-		win.setWindowTitle("Client: Player 2");
-		thisPlayer = 1;
-		otherPlayer = 0;
 	}
 
 	SDL_RenderSetLogicalSize(ren, winWidth, winHeight);
 	SDL_SetRenderDrawColor(ren, 20, 49, 59, 255); //set background colour
 	SDL_RenderClear(ren);
-
+	
+	Window::setRenderer(ren);
 	SpriteHandler::setRenderer(ren); //set SpriteHandler renderer
 	TextBox::setRenderer(ren); //set TextBox renderer
 
-	//Showloading screen
-	SDL_Rect rect = { 0, 0, winWidth, winHeight }; //size and position of sprite, x, y, w, h
-	SDL_Rect spritePosRect = { 0, 0, winWidth, winHeight }; //position of sprite in spritesheet, x, y, w, h
-
-	std::string imagePath = "./assets/loadingScreen.png"; //sprite image path
-	SpriteHandler loadingScreen(rect, spritePosRect, imagePath, false, -1, 1);
-
-	loadingScreen.drawSprite();
-	SDL_RenderPresent(ren);
-
-	//---- network begin ----//
-	if (ZMQserver)
-	{
-		this_zmq_publisher1.bind("tcp://*:5556");
-		this_zmq_subscriber2.connect("tcp://localhost:5557");
-	}
-
-	else
-	{
-		//std::cout << "Subscribing to server ..." << std::endl;
-		this_zmq_publisher2.bind("tcp://*:5557");
-		this_zmq_subscriber1.connect("tcp://localhost:5556");
-	}
-	//---- network end ----//
-	
-
-	//---- sprite begin ----//
-	//---- player 1 begin ----//
-	rect = {35, 849, 66, 92}; //size and position of sprite, x, y, w, h
-	spritePosRect = {0, 0, 66, 92}; //position of sprite in spritesheet, x, y, w, h
-
-	imagePath = "./assets/player_walk.png"; //sprite image path
-	std::string spriteDataPath = "./assets/player_walk.txt"; //sprite image data (for animations) path
-
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding player sprite...");
-	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 0.5))); //adds sprite to list
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Player sprite added");
-
-	spriteList[player1]->populateAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
-
-	//create idle
-	imagePath = "./assets/player_idle.png";
-	rect = { 0, 0, 66, 92 }; 
-	spritePosRect = { 0, 0, 66, 92 }; 
-
-	spriteList[player1]->createIdleSprite(rect, spritePosRect, imagePath); //creates idle sprite for player when not moving
-	//---- player 1 end ----//
-
-	//---- player 2 begin ----//
-	rect = { 665, 864, 66, 92 }; //size and position of sprite, x, y, w, h
-	spritePosRect = { 0, 0, 66, 92 }; //position of sprite in spritesheet, x, y, w, h
-
-	imagePath = "./assets/player_walk.png"; //sprite image path
-	spriteDataPath = "./assets/player_walk.txt"; //sprite image data (for animations) path
-
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding player 2 sprite...");
-	spriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 0.5))); //adds sprite to list
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Player 2 sprite added");
-
-	spriteList[player2]->populateAnimationData(spriteDataPath); //reads spritesheet information and stores it for later use
-
-	//create idle
-	imagePath = "./assets/player_idle.png";
-	rect = { 0, 0, 66, 92 };
-	spritePosRect = { 0, 0, 66, 92 };
-
-	spriteList[player2]->createIdleSprite(rect, spritePosRect, imagePath); //creates idle sprite for player when not moving
-	//---- player 2 end ----//
-
-	//---- ground begin ----//
-	imagePath = "./assets/grassMid.png";
-
-	rect = { 0, 0, 70, 70 };
-	spritePosRect = { 0, 0, 70, 70 };
-
-	LevelBuilder level01;
-	std::string levelPath = "./assets/level01.txt";
-	levelSpriteList = level01.getLevel(levelPath);
-	
-	//---- ground end ----//
-	//---- sprite end ----//
-
-
-	//---- text begin ----//
-	if( TTF_Init() == -1 )
-	{
-		std::cout << "TTF_Init Failed: " << TTF_GetError() << std::endl;
-		cleanExit(1);
-	}
-
-	TTF_Font* theFont = TTF_OpenFont("./assets/Hack-Regular.ttf", 96); //font point size //Hack-Regular
-	if (theFont == nullptr)
-	{
-		std::cout << "TTF_OpenFont Error: " << TTF_GetError() << std::endl;
-		cleanExit(1);
-	}
-
-	SDL_Color theColour = {255, 255, 255}; //text colour
-	SDL_Rect messageRect; //x pos, y pos, width, height
-	std::string theString;
-
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding text...");
-
-	theString = "Score";
-	messageRect = { 20, 20, 100, 30 };
-	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect))); //adds text to list
-
-	theString = "000000"; //score number
-	messageRect = { 150, 20, 110, 30 };
-	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
-	
-	if(thisPlayer == 0)
-		theString = "Player 1";
-	else 
-		theString = "Player 2";
-	messageRect = { 20, 70, 120, 30 };
-	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
-
-	theString = "Level 01";
-	messageRect = { 160, 70, 150, 30 };
-	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
-
-	theString = "Bonus 0000";
-	messageRect = { 330, 70, 180, 30 };
-	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
-
-	theString = "Time 000";
-	messageRect = { 540, 70, 150, 30 };
-	textList.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
-
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Text added");
-	//---- text end ----//
-
-
-	//---- sound begin ----//
-	//load background music
-	bgMusic = Mix_LoadMUS("./assets/background_music.ogg");
-	if (bgMusic == NULL)
-	{
-		std::cout << "Background music SDL_mixer Error: " << Mix_GetError() << std::endl;
-		cleanExit(1);
-	}
-
-	//load other sounds
-	
-	if (Mix_PlayingMusic() == 0)
-	{
-		Mix_PlayMusic(bgMusic, -1);
-	}
-	//---- sound end ----//
-
-	//---- menu begin ----//
-	//pauseSurface = SDL_CreateRGBSurface(0, 700, 945, 32, 0, 0, 0, 0);
-	//rect = { 0, 0, 700, 945 };
-	//SDL_FillRect(pauseSurface, &rect, SDL_MapRGB(pauseSurface->format, 255, 0, 0));
-	//pauseTex = SDL_CreateTextureFromSurface(ren, pauseSurface);
-
-	int menuGap = 0;
-	int increment = 50;
-	int menuPosX = (int)winWidth / 2 - 85;
-	int menuPosY = (int)winHeight / 2 - 100;
-
-	spritePosRect = { 0, 0, 190, 45 }; 
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 }; 
-	imagePath = "./assets/buttonResumeUp.png"; 
-	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1))); 
-	menuGap += increment;
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
-	imagePath = "./assets/buttonMusicUp.png"; 
-	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
-	menuGap += increment;
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
-	imagePath = "./assets/buttonFullscreenUp.png"; 
-	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
-	menuGap += increment;
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
-	imagePath = "./assets/buttonRestartUp.png"; 
-	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
-	menuGap += increment;
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
-	imagePath = "./assets/buttonQuitUp.png";
-	menuSpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
-	menuGap += increment;
-
-	//pressed buttons
-	menuGap = 0;
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 }; 
-	imagePath = "./assets/buttonResumeDown.png"; 
-	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
-	menuGap += increment;
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
-	imagePath = "./assets/buttonMusicDown.png"; 
-	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
-	menuGap += increment;
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
-	imagePath = "./assets/buttonFullscreenDown.png"; 
-	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
-	menuGap += increment;
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
-	imagePath = "./assets/buttonRestartDown.png"; 
-	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
-	menuGap += increment;
-
-	rect = { menuPosX, menuPosY + menuGap, 190, 45 };
-	imagePath = "./assets/buttonQuitDown.png"; 
-	menuSpriteListSelected.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, false, -1, 1)));
-	menuGap += increment;
-	//---- menu end ----//
-
+	//load game assets
+	loadAssets();
 
 	//delay to display loading screen
 	SDL_Delay(2000);
@@ -908,12 +886,12 @@ int main( int argc, char* args[] )
 	{
 		auto time = Clock::now(); //used for FPS limiter
 
-		loadAssets();
-
 		handleInput(); // this should ONLY SET VARIABLES
 
 		if(!paused)
 			updateSimulation(); // this should ONLY SET VARIABLES according to simulation
+
+		handleNetwork(); //handle network activity
 
 		render(); // this should render the world state according to VARIABLES
 
