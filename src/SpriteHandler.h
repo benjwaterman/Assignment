@@ -17,22 +17,24 @@ public:
 	void createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std::string imagePath);
 	void setIdle();
 	bool getGravity();
-	bool jump(int speed, int height);
-	void addBoxCollider();
+	bool jump(float speed, int height);
 	int getColliderType();
 	SDL_Rect getBoxCollider();
 	int getX();
 	void setSpriteX(int x);
 	void setSpriteY(int y);
 	void updateMovement(Position4 relativePosition);
-	SDL_Rect getOldPos();
 	SDL_Rect getPos();
 	void setPos(int x, int y, int w, int h);
 	void setPos(SDL_Rect rect);
 	void enableGravity(bool x);
 	void setLastClearPos(int x, int y, int w, int h);
 	void setLastClearPos(SDL_Rect rect);
+	void setFacing(bool facing);
+	void setGravitySpeed(double speed);
 	SDL_Rect getLastClearPos();
+	int getCurrentFrame();
+	void setCurrentFrame(int frame);
 
 	~SpriteHandler();
 
@@ -45,7 +47,6 @@ private:
 	SDL_Texture *_texMove;
 	SDL_Texture *_texIdle;
 	SDL_Rect _posRect;
-	SDL_Rect _oldPosRect;
 	SDL_Rect _lastClearPosRect;
 	SDL_Rect _texPosRect;
 	SDL_Rect _texPosRectIdle;
@@ -54,15 +55,17 @@ private:
 	SDL_RendererFlip _flip;
 
 	Vector2 _spriteMovement;
+	//for keeping movement as double instead of int, needed for physics sim
+	Vector2 _spritePositionDouble;
 
 	int _spriteWidth;
 	int _spriteHeight;
-	int _currentFrame;
+	int _currentFrame = 0;
+	int _animationFrame = 0;
 	int _colFrame = 1;
 	int _rowFrame = 1;
 	int _scaleFactor;
 	int _colliderType; // 1 = solid, eg cant walk through; 2 = ladders, 3 = collectables
-	int _curJumpHeight = 0;
 	int _speedX = 0;
 	int _maxHeight = 9000000;
 
@@ -76,8 +79,11 @@ private:
 	bool _jumping = false;
 	bool _canFall = true;
 	bool _onLadder = true;
+	bool _startRight = true;
 
 	double _dt = 0; //delta time
+	double _gravitySpeed = 0;
+	double _curJumpHeight = 0;
 
 	std::chrono::steady_clock::time_point time;
 

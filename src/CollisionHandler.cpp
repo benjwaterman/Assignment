@@ -12,26 +12,26 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 	for (i = 0; i < (int)levelObjects.size(); i++) //check player collider with every other collider in level
 	{
 		//new position
-		int playerSpriteMinX = player->getBoxCollider().x; //represents position of top pixel x value
-		int playerSpriteMinY = player->getBoxCollider().y; //represents position of top pixel y value
-		int playerSpriteMaxX = playerSpriteMinX + player->getBoxCollider().w; //width of sprite
-		int playerSpriteMaxY = playerSpriteMinY + player->getBoxCollider().h; //height of sprite
+		double playerSpriteMinX = player->getBoxCollider().x; //represents position of top pixel x value
+		double playerSpriteMinY = player->getBoxCollider().y; //represents position of top pixel y value
+		double playerSpriteMaxX = playerSpriteMinX + player->getBoxCollider().w; //width of sprite
+		double playerSpriteMaxY = playerSpriteMinY + player->getBoxCollider().h; //height of sprite
 
 		//gets old position
-		int oldPlayerSpriteMinX = player->getLastClearPos().x; 
-		int oldPlayerSpriteMinY = player->getLastClearPos().y;
-		int oldPlayerSpriteMaxX = oldPlayerSpriteMinX + player->getLastClearPos().w;
-		int oldPlayerSpriteMaxY = oldPlayerSpriteMinY + player->getLastClearPos().h;
+		double oldPlayerSpriteMinX = player->getLastClearPos().x;
+		double oldPlayerSpriteMinY = player->getLastClearPos().y;
+		double oldPlayerSpriteMaxX = oldPlayerSpriteMinX + player->getLastClearPos().w;
+		double oldPlayerSpriteMaxY = oldPlayerSpriteMinY + player->getLastClearPos().h;
 
 		//center of player
-		int playerSpriteCentX = playerSpriteMinX + (player->getBoxCollider().w / 2);
-		int playerSpriteCentY = playerSpriteMinY + (player->getBoxCollider().h / 2);
+		double playerSpriteCentX = playerSpriteMinX + (player->getBoxCollider().w / 2);
+		double playerSpriteCentY = playerSpriteMinY + (player->getBoxCollider().h / 2);
 
 		//level object position
-		int levelSpriteMinX = levelObjects[i]->getBoxCollider().x;
-		int levelSpriteMinY = levelObjects[i]->getBoxCollider().y;
-		int levelSpriteMaxX = levelSpriteMinX + levelObjects[i]->getBoxCollider().w;
-		int levelSpriteMaxY = levelSpriteMinY + levelObjects[i]->getBoxCollider().h;
+		double levelSpriteMinX = levelObjects[i]->getBoxCollider().x;
+		double levelSpriteMinY = levelObjects[i]->getBoxCollider().y;
+		double levelSpriteMaxX = levelSpriteMinX + levelObjects[i]->getBoxCollider().w;
+		double levelSpriteMaxY = levelSpriteMinY + levelObjects[i]->getBoxCollider().h;
 		
 		//type of collider of current level object
 		int colliderType = levelObjects[i]->getColliderType();
@@ -75,12 +75,6 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 						//check if collision has occurred with a score gaining object
 						CheckForScore(colliderType);
 
-						//if touching a ladder
-						if (colliderType == 2)
-						{
-							touchingLadder = true;
-						}
-
 						//ladders are special a case which is handled seperately
 						if (colliderType != 2) 
 						{
@@ -90,9 +84,6 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 								//std::cout << "Collision detected beneath" << std::endl;
 								_relativePosition.beneath.isTrue = true;
 								_relativePosition.beneath.type = colliderType;
-
-								if (_relativePosition.beneath.isTrue == true && _relativePosition.beneath.type == 1)
-									touchingFloor = true;
 							}
 
 							if (CheckAbove(oldPlayerSpriteMinY, playerSpriteMinY, levelSpriteMaxY)) 
@@ -102,19 +93,14 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 								_relativePosition.above.type = colliderType;
 							}
 
-							if (!touchingFloor && touchingLadder)
-							{
-								playerSpriteMaxY += 5;
-							}
-
-							if ((playerSpriteMaxY - 5 > levelSpriteMinY) && CheckRight(oldPlayerSpriteMaxX, playerSpriteMaxX, levelSpriteMinX)) // - 5 required to stop clipping with floor
+							if (CheckRight(oldPlayerSpriteMaxX, playerSpriteMaxX, levelSpriteMinX))
 							{
 								//std::cout << "Collision detected right" << std::endl;
 								_relativePosition.right.isTrue = true;
 								_relativePosition.right.type = colliderType;
 							}
 
-							if ((playerSpriteMaxY - 5 > levelSpriteMinY) && CheckLeft(oldPlayerSpriteMinX, playerSpriteMinX, levelSpriteMaxX))
+							if (CheckLeft(oldPlayerSpriteMinX, playerSpriteMinX, levelSpriteMaxX))
 							{
 								//std::cout << "Collision detected left" << std::endl;
 								_relativePosition.left.isTrue = true;
@@ -151,66 +137,6 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 			_relativePosition.above.type = 1;
 		}
 
-		/*
-		//vertical checks 
-		//beneath player
-		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) ||
-			(levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
-		{
-			if (levelSpriteY <= playerSpriteY + playerSpriteH && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
-			{
-				if (colliderType != 2) //ladders are special a case which is handled seperately
-				{
-					_relativePosition.beneath.isTrue = true;
-					_relativePosition.beneath.type = colliderType;
-
-					CheckForScore(colliderType);
-				}
-			}
-		}
-
-		//above player
-		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) ||
-			(levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
-		{
-			if (levelSpriteY + levelSpriteH <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) //y axis
-			{
-				_relativePosition.above.isTrue = true;
-				_relativePosition.above.type = colliderType;
-
-				CheckForScore(colliderType);
-			}
-		}
-
-		//horizontal checks (aka beside player)
-		//right
-		if (playerSpriteX + playerSpriteW >= levelSpriteX && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW) //x axis 
-		{
-			if ((levelSpriteY <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) ||
-				(levelSpriteY <= playerSpriteY + playerSpriteH - 2 && playerSpriteY + playerSpriteH - 2 <= levelSpriteY + levelSpriteH) ||
-				(levelSpriteY <= playerSpriteY + playerSpriteH - playerSpriteH / 2 && playerSpriteY + playerSpriteH - playerSpriteH / 2 <= levelSpriteY + levelSpriteH)) //have to check at 3 points along edge of sprite, top, middle and bottom for collisions
-			{
-				_relativePosition.right.isTrue = true;
-				_relativePosition.right.type = colliderType;
-
-				CheckForScore(colliderType);
-			}
-		}
-
-		//left
-		if (playerSpriteX <= levelSpriteX + levelSpriteW && playerSpriteX >= levelSpriteX) //x axis 
-		{
-			if ((levelSpriteY <= playerSpriteY && playerSpriteY <= levelSpriteY + levelSpriteH) ||
-				(levelSpriteY <= playerSpriteY + playerSpriteH - 2 && playerSpriteY + playerSpriteH - 2 <= levelSpriteY + levelSpriteH) ||
-				(levelSpriteY <= playerSpriteY + playerSpriteH - playerSpriteH / 2 && playerSpriteY + playerSpriteH - playerSpriteH / 2 <= levelSpriteY + levelSpriteH)) //have to check at 3 points along edge of sprite, top, middle and bottom for collisions
-			{
-				_relativePosition.left.isTrue = true;
-				_relativePosition.left.type = colliderType;
-
-				CheckForScore(colliderType);
-			}
-		} */
-
 		//ladder, make sure center of player is within ladder
 		if (colliderType == 2) //if ladder
 		{
@@ -223,19 +149,6 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 				}
 			}
 		}
-
-	//	//mushrooms and plants
-	//	if (colliderType == 3 || colliderType == 4) 
-	//	{
-	//		if ((levelSpriteX <= playerSpriteX && playerSpriteX <= levelSpriteX + levelSpriteW) ||
-	//			(levelSpriteX <= playerSpriteX + playerSpriteW && playerSpriteX + playerSpriteW <= levelSpriteX + levelSpriteW)) //x axis
-	//		{
-	//			if (levelSpriteY <= playerSpriteY + playerSpriteH && playerSpriteY + playerSpriteH <= levelSpriteY + levelSpriteH) //y axis
-	//			{
-	//				CheckForScore(colliderType);
-	//			}
-	//		}
-	//	}
 	}
 
 	//last known location with no solid collisions
@@ -257,22 +170,22 @@ void CollisionHandler::CheckForScore(int type)
 	}
 }
 
-bool CollisionHandler::CheckBeneath(int oldPlayerSpriteMaxY, int playerSpriteMaxY, int levelSpriteMinY)
+bool CollisionHandler::CheckBeneath(double oldPlayerSpriteMaxY, double playerSpriteMaxY, double levelSpriteMinY)
 {
 	return (oldPlayerSpriteMaxY <= levelSpriteMinY && playerSpriteMaxY >= levelSpriteMinY); 
 }
 
-bool CollisionHandler::CheckAbove(int oldPlayerSpriteMinY, int playerSpriteMinY, int levelSpriteMaxY)
+bool CollisionHandler::CheckAbove(double oldPlayerSpriteMinY, double playerSpriteMinY, double levelSpriteMaxY)
 {
 	return (oldPlayerSpriteMinY >= levelSpriteMaxY && playerSpriteMinY <= levelSpriteMaxY);
 }
 
-bool CollisionHandler::CheckLeft(int oldPlayerSpriteMinX, int playerSpriteMinX, int levelSpriteMaxX)
+bool CollisionHandler::CheckLeft(double oldPlayerSpriteMinX, double playerSpriteMinX, double levelSpriteMaxX)
 {
 	return (oldPlayerSpriteMinX >= levelSpriteMaxX && playerSpriteMinX <= levelSpriteMaxX);
 }
 
-bool CollisionHandler::CheckRight(int oldPlayerSpriteMaxX, int playerSpriteMaxX, int levelSpriteMinX)
+bool CollisionHandler::CheckRight(double oldPlayerSpriteMaxX, double playerSpriteMaxX, double levelSpriteMinX)
 {
 	return (oldPlayerSpriteMaxX <= levelSpriteMinX && playerSpriteMaxX >= levelSpriteMinX);
 }

@@ -8,10 +8,10 @@ public:
 	CollisionHandler();
 	Position4 CheckCollisions(std::unique_ptr<SpriteHandler> const &player, Vector2 playerMovement, std::vector<std::unique_ptr<SpriteHandler>> const &levelObjects);
 	void CheckForScore(int type);
-	bool CheckBeneath(int oldPlayerSpriteMaxY, int playerSpriteMaxY, int levelSpriteMinY);
-	bool CheckAbove(int, int, int);
-	bool CheckLeft(int, int, int);
-	bool CheckRight(int, int, int);
+	bool CheckBeneath(double, double, double);
+	bool CheckAbove(double, double, double);
+	bool CheckLeft(double, double, double);
+	bool CheckRight(double, double, double);
 	~CollisionHandler();
 	
 private:

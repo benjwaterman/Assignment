@@ -58,14 +58,32 @@ struct Vector2
 {
 	Vector2()
 	{
-		x = y = 0;
+		x = y = 0.0f;
 	}
 
-	Vector2(int _x, int _y)
+	Vector2(double _x, double _y)
 	{
 		x = _x;
 		y = _y;
 	}
 
-	int x, y;
+	double x, y;
+};
+
+struct Vector4
+{
+	Vector4()
+	{
+		x = y = w = h = 0;
+	}
+
+	Vector4(double _x, double _y, double _w, double _h)
+	{
+		x = _x;
+		y = _y;
+		w = _w;
+		h = _h;
+	}
+
+	double x, y, w, h;
 };

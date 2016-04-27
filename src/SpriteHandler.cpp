@@ -14,7 +14,7 @@ SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string 
 
 	//ASSERT or check that ren is not nullptr
 	_posRect = rect;
-	_oldPosRect = rect;
+	_spritePositionDouble = {double (_posRect.x), double(_posRect.y) };
 	_texPosRect = spritePosRect;
 	_origSPR = _texPosRect; //store original (used for animation)
 	_flip = SDL_FLIP_NONE;
@@ -48,9 +48,6 @@ SpriteHandler::SpriteHandler(SDL_Rect rect, SDL_Rect spritePosRect, std::string 
 		std::cout << "SDL_CreateTextureFromSurface Error: " << SDL_GetError() << std::endl;
 		//cleanExit(1);
 	}
-
-	if (_enableCollider)
-		addBoxCollider();
 }
 
 void SpriteHandler::setRenderer(SDL_Renderer* renderer)
@@ -60,9 +57,6 @@ void SpriteHandler::setRenderer(SDL_Renderer* renderer)
 
 void SpriteHandler::drawSprite() //renders sprite
 {
-	if (_enableCollider)
-		addBoxCollider();
-
 	if(!_spriteMoving)
 		SDL_RenderCopyEx(_ren, _texIdle, &_texPosRectIdle, &_posRect, 0, 0, _flip);
 
@@ -87,6 +81,8 @@ void SpriteHandler::animateSprite(int startFrame, int frames, int fps, bool loop
 		_currentFrame = 0;
 	}
 
+	_animationFrame = _currentFrame + startFrame;
+	
 	_dt += std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - time).count();
 
 	if (_dt > spriteFPS) //64ms ~= 15fps
@@ -191,8 +187,8 @@ void SpriteHandler::getFromFile(char charToGet)
 //moves sprite
 void SpriteHandler::moveSprite(Vector2 vec2) 
 {
-	int x = vec2.x;
-	int y = vec2.y;
+	double x = vec2.x;
+	double y = vec2.y;
 
 	_spriteMoving = true;
 	_spriteMovement.x += x;
@@ -225,6 +221,7 @@ void SpriteHandler::createIdleSprite(SDL_Rect rect, SDL_Rect spritePosRect, std:
 
 void SpriteHandler::setIdle()
 {
+	//_animationFrame = -1;
 	_spriteMoving = false;
 }
 
@@ -233,7 +230,7 @@ bool SpriteHandler::getGravity()
 	return _enableGravity;
 }
 
-bool SpriteHandler::jump(int speed, int height)
+bool SpriteHandler::jump(float speed, int height)
 {
 	//keeps increasing player height until it reaches the height specified
 	if (_curJumpHeight < height) 
@@ -254,12 +251,6 @@ bool SpriteHandler::jump(int speed, int height)
 	}
 }
 
-void SpriteHandler::addBoxCollider()
-{
-	_oldPosRect = _boxCollider;
-	_boxCollider = { _posRect.x, _posRect.y, _posRect.w, _posRect.h };
-}
-
 int SpriteHandler::getColliderType()
 {
 	if (_colliderType != 0)
@@ -271,7 +262,7 @@ int SpriteHandler::getColliderType()
 
 SDL_Rect SpriteHandler::getBoxCollider()
 {
-	return _boxCollider;
+	return _posRect;
 }
 
 int SpriteHandler::getX()
@@ -282,26 +273,42 @@ int SpriteHandler::getX()
 //for directly setting the sprites x value
 void SpriteHandler::setSpriteX(int x)
 {
-	_posRect.x = x;
+	_spritePositionDouble.x = x;
 }
 
 //for directly setting the sprites y value
 void SpriteHandler::setSpriteY(int y)
 {
-	_posRect.y = y;
+	_spritePositionDouble.y = y;
 }
 
 void SpriteHandler::updateMovement(Position4 relativePosition)
 {
 	//flips sprite according to direction of movement, assuming sprite starts facing right
-	if (_spriteMovement.x > 0)
+	if (_startRight)
 	{
-		_flip = SDL_FLIP_NONE;
+		if (_spriteMovement.x > 0)
+		{
+			_flip = SDL_FLIP_NONE;
+		}
+
+		else if (_spriteMovement.x < 0)
+		{
+			_flip = SDL_FLIP_HORIZONTAL;
+		}
 	}
 
-	else if (_spriteMovement.x < 0)
+	else
 	{
-		_flip = SDL_FLIP_HORIZONTAL;
+		if (_spriteMovement.x > 0)
+		{
+			_flip = SDL_FLIP_HORIZONTAL;
+		}
+
+		else if (_spriteMovement.x < 0)
+		{
+			_flip = SDL_FLIP_NONE;
+		}
 	}
 
 	//get any collisions and their direction
@@ -355,25 +362,26 @@ void SpriteHandler::updateMovement(Position4 relativePosition)
 	//if gravity is enabled, apply it
 	if (_enableGravity == true)
 	{
-		_spriteMovement.y = 5;
+		_spriteMovement.y = _gravitySpeed;
+		//_spriteMovement.x = 0;
 	}
 
 	//finally update the sprite position
-	_posRect.x += _spriteMovement.x;
+	_spritePositionDouble.x += _spriteMovement.x;
+
 	//prevent the playing from going up when not on a ladder
-	if(_jumping != _onLadder || _enableGravity)
-		_posRect.y += _spriteMovement.y;
+	if (_jumping != _onLadder || _enableGravity)
+		_spritePositionDouble.y += _spriteMovement.y;
+
 	//prevent playing from going double speed if jumping while on ladder
 	else if (_jumping && _onLadder)
-		_posRect.y += _spriteMovement.y/2;
+		_spritePositionDouble.y += _spriteMovement.y/2;
+
+	_posRect.x = int(_spritePositionDouble.x);
+	_posRect.y = int(_spritePositionDouble.y);
 
 	//reset movement for next frame
 	_spriteMovement = { 0, 0 };
-}
-
-SDL_Rect SpriteHandler::getOldPos()
-{
-	return _oldPosRect;
 }
 
 SDL_Rect SpriteHandler::getPos()
@@ -415,6 +423,31 @@ void SpriteHandler::setLastClearPos(SDL_Rect rect)
 SDL_Rect SpriteHandler::getLastClearPos()
 {
 	return _lastClearPosRect;
+}
+
+void SpriteHandler::setFacing(bool facingRight) 
+{
+	_startRight = facingRight;
+}
+
+void SpriteHandler::setGravitySpeed(double speed)
+{
+	_gravitySpeed = speed;
+}
+
+int SpriteHandler::getCurrentFrame()
+{
+	return _animationFrame;
+}
+
+void SpriteHandler::setCurrentFrame(int frame)
+{
+	if (frame > 0)
+	{
+		_animationFrame = frame;
+		_texPosRect = spriteDataList[_animationFrame];
+	}
+	
 }
 
 SpriteHandler::~SpriteHandler()
