@@ -9,6 +9,7 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 {
 	bool touchingLadder = false;
 	bool touchingFloor = false;
+	double precisionMultiplier = 1.5;
 	for (i = 0; i < (int)levelObjects.size(); i++) //check player collider with every other collider in level
 	{
 		//new position
@@ -37,30 +38,30 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 		int colliderType = levelObjects[i]->getColliderType();
 
 		//to ensure player falls through gaps (default player sprite is 2 pixels wider than the gaps between terrain)
-		playerSpriteMinX += 2; 
-		playerSpriteMaxX -= 2;
+		playerSpriteMinX += 4; 
+		playerSpriteMaxX -= 4;
 
 		//checks for collisions where player will be next frame if movement takes place
 		if (playerMovement.y > 0) //going down
 		{
-			playerSpriteMaxY += playerMovement.y;
+			playerSpriteMaxY += playerMovement.y;// * precisionMultiplier;
 		}
 
 		else if (playerMovement.y < 0) //going up
 		{
-			playerSpriteMinY += playerMovement.y;
+			playerSpriteMinY += playerMovement.y * precisionMultiplier;
 		}
 
 		else if (playerMovement.x > 0) //going right
 		{
-			playerSpriteMaxX += playerMovement.x;
-			playerSpriteMinX += playerMovement.x;
+			playerSpriteMaxX += playerMovement.x * precisionMultiplier;
+			playerSpriteMinX += playerMovement.x * precisionMultiplier;
 		}
 
 		else if (playerMovement.x < 0) //going left
 		{
-			playerSpriteMinX += playerMovement.x;
-			playerSpriteMaxX += playerMovement.x;
+			playerSpriteMinX += playerMovement.x * precisionMultiplier;
+			playerSpriteMaxX += playerMovement.x * precisionMultiplier;
 		}
 
 		//checks if collision boxes interesect

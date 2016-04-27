@@ -25,22 +25,20 @@ std::vector<std::unique_ptr<SpriteHandler>> LevelBuilder::getLevel(std::string l
 	std::string str;
 	//std::unique_ptr<SpriteHandler> floor(_posRect, _texPosRect, grassImagePath, false);
 	
-
-
 	while (std::getline(levelData, str))
 	{
 		for (char c : str)
 		{
-			_posRect.x = 35 * (_column);
-			_posRect.y = 35 * (_row);
-			_posRect.w = 70;
-			_posRect.h = 70;
-
 			if (_column >= 20)
 			{
 				_row++;
 				_column = 0;
 			}
+
+			_posRect.x = 35 * (_column);
+			_posRect.y = 35 * (_row);
+			_posRect.w = 70;
+			_posRect.h = 70;
 
 			switch (c)
 			{

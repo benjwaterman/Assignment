@@ -1332,7 +1332,7 @@ int main( int argc, char* args[] )
 
 		if (!paused)
 		{
-			int simMultiplier = 2; //how many times to do physics simulation per how
+			int simMultiplier = 1; //how many times to do physics simulation per how
 			double simLength = 0.02; //realtime seconds for each physics frame
 
 			for (int i = 0; i < simMultiplier; i++)
