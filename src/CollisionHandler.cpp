@@ -74,6 +74,7 @@ Position4 CollisionHandler::CheckCollisions(std::unique_ptr<SpriteHandler> const
 					{
 						//check if collision has occurred with a score gaining object
 						CheckForScore(colliderType);
+						CheckForEnemy(colliderType);
 
 						//ladders are special a case which is handled seperately
 						if (colliderType != 2) 
@@ -167,6 +168,14 @@ void CollisionHandler::CheckForScore(int type)
 	{
 		_relativePosition.gainScore = true;
 		_relativePosition.elementInArray = i;
+	}
+}
+
+void CollisionHandler::CheckForEnemy(int type)
+{
+	if (type == 6)
+	{
+		_relativePosition.hitEnemy = true;
 	}
 }
 

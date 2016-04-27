@@ -42,6 +42,7 @@ struct Position4
 	{
 		onLadder = false;
 		gainScore = false;
+		hitEnemy = false;
 		ladderCenter = 0;
 		elementInArray = -1;
 	}
@@ -49,6 +50,7 @@ struct Position4
 	PositionInfo above, beneath, left, right;
 	bool onLadder;
 	bool gainScore;
+	bool hitEnemy;
 
 	int ladderCenter;
 	int elementInArray;

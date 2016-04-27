@@ -45,7 +45,7 @@ bool jumping = false;
 bool canFall = true;
 bool canJump = true;
 double playerSpeed = 300;
-double enemySpeed = 300;
+double enemySpeed = 100;
 double gravity = 1;
 Vector2 moveVector;
 int thisPlayer = 0; //for keeping track of which player the client/server is
@@ -54,11 +54,11 @@ int player1 = 0;
 int player2 = 1;
 
 //enemy
-bool eMovingLeft = false;
-bool eMovingRight = false;
-bool eMovingUp = false;
-bool eMovingDown = false;
-bool canMoveRight = true;
+bool eMovingLeft[2] = { false, false };
+bool eMovingRight[2] = { false, false };
+bool eMovingUp[2] = { false, false };
+bool eMovingDown[2] = { false, false };
+bool canMoveRight[2] = { false, false };
 
 //sound
 Mix_Music *bgMusic;
@@ -143,15 +143,16 @@ void handleNetwork()
 			// get the data as a streamstring (many other options than this)
 			std::istringstream iss(static_cast<char*>(update.data()));
 
-			//data format is floats, so have to read back to floats
-			int posX, posY, posW, posH, scoreObjPos, playerFrame, enemyFrame;
+			//data format is ints
+			int posX, posY, posW, posH, scoreObjPos, playerFrame, playerFacing;
 
-			// read the string stream into the four floats
-			iss >> posX >> posY >> posW >> posH >> scoreObjPos >> playerFrame;
+			// read the string into ints
+			iss >> posX >> posY >> posW >> posH >> scoreObjPos >> playerFrame >> playerFacing;
 
-			// use those floats to set the SDL_Rects (auto convert to int)
+			// use ints to set the SDL_Rects
 			spriteList[otherPlayer]->setPos(posX, posY, posW, posH);
 			spriteList[otherPlayer]->setCurrentFrame(playerFrame);
+			spriteList[otherPlayer]->setFlip(playerFacing);
 
 			if (scoreObjPos > -1)
 			{
@@ -172,11 +173,22 @@ void handleNetwork()
 		else
 			isPaused = 0;
 
-		// add message content according to above format
 		snprintf((char *)message.data(), messageLength,
-			"%i %i %i %i %i %i %i %i %i %i %i %i %i %i", spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h, 
-			deleteScorePos, timeScore, bonusScore, isPaused, enemySpriteList[0]->getPos().x, enemySpriteList[0]->getPos().y, enemySpriteList[0]->getPos().w, enemySpriteList[0]->getPos().h, 
-			spriteList[thisPlayer]->getCurrentFrame(), enemySpriteList[0]->getCurrentFrame());
+			"%i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i", //20 ints 
+			//current player position info /4
+			spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h,
+			//other info /4
+			deleteScorePos, timeScore, bonusScore, isPaused, 
+			//enemy 1 position info /4
+			enemySpriteList[0]->getPos().x, enemySpriteList[0]->getPos().y, enemySpriteList[0]->getPos().w, enemySpriteList[0]->getPos().h,
+			//player frame and facing /2
+			spriteList[thisPlayer]->getCurrentFrame(), spriteList[thisPlayer]->getFlip(), 
+			//enemy 1 facing /1
+			enemySpriteList[0]->getFlip(), 
+			//enemy 2 position /4
+			enemySpriteList[1]->getPos().x, enemySpriteList[1]->getPos().y, enemySpriteList[1]->getPos().w, enemySpriteList[1]->getPos().h, 
+			//enemy 2 facing /1
+			enemySpriteList[1]->getFlip());
 
 		std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
 
@@ -201,15 +213,18 @@ void handleNetwork()
 
 			std::istringstream iss(static_cast<char*>(update.data()));
 
-			int posX, posY, posW, posH, scoreObjPos, isPaused, ePosX, ePosY, ePosW, ePosH, playerFrame, enemyFrame;
+			int posX, posY, posW, posH, scoreObjPos, isPaused, ePosX, ePosY, ePosW, ePosH, playerFrame, playerFacing, enemy1Facing, e2PosX, e2PosY, e2PosW, e2PosH, enemy2Facing;
 
-			iss >> posX >> posY >> posW >> posH >> scoreObjPos >> timeScore >> bonusScore >> isPaused >> ePosX >> ePosY >> ePosW >> ePosH >> playerFrame >> enemyFrame;
+			iss >> posX >> posY >> posW >> posH >> scoreObjPos >> timeScore >> bonusScore >> isPaused >> ePosX >> ePosY >> ePosW >> ePosH >> playerFrame >> playerFacing >> enemy1Facing >> e2PosX >> e2PosY >> e2PosW >> e2PosH >> enemy2Facing;
 			
 			spriteList[otherPlayer]->setPos(posX, posY, posW, posH);
 			spriteList[otherPlayer]->setCurrentFrame(playerFrame);
+			spriteList[otherPlayer]->setFlip(playerFacing);
 
 			enemySpriteList[0]->setPos(ePosX, ePosY, ePosW, ePosH);
-			enemySpriteList[0]->setCurrentFrame(enemyFrame);
+			enemySpriteList[0]->setFlip(enemy1Facing);
+			enemySpriteList[1]->setPos(e2PosX, e2PosY, e2PosW, e2PosH);
+			enemySpriteList[1]->setFlip(enemy2Facing);
 			
 			if (scoreObjPos > -1)
 			{
@@ -226,8 +241,8 @@ void handleNetwork()
 		zmq::message_t message(messageLength);
 
 		snprintf((char *)message.data(), messageLength,
-			"%i %i %i %i %i %i", spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h, deleteScorePos, 
-			spriteList[thisPlayer]->getCurrentFrame());
+			"%i %i %i %i %i %i %i", spriteList[thisPlayer]->getPos().x, spriteList[thisPlayer]->getPos().y, spriteList[thisPlayer]->getPos().w, spriteList[thisPlayer]->getPos().h, deleteScorePos, 
+			spriteList[thisPlayer]->getCurrentFrame(), spriteList[thisPlayer]->getFlip());
 
 		std::cout << "Message sent: \"" << std::string(static_cast<char*>(message.data()), message.size()) << "\"" << std::endl;
 
@@ -458,9 +473,7 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 	if (movingRight)
 	{
 		playerMovement = { playerSpeed * simLength, 0 };
-
 		relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
-
 		relativePosition.beneath = CollisionHandler().CheckCollisions(spriteList[thisPlayer], grav, levelSpriteList).beneath;
 
 		spriteList[thisPlayer]->moveSprite(playerMovement);
@@ -469,9 +482,7 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 	else if (movingLeft)
 	{
 		playerMovement = { -playerSpeed * simLength, 0 };
-
 		relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
-
 		relativePosition.beneath = CollisionHandler().CheckCollisions(spriteList[thisPlayer], grav, levelSpriteList).beneath;
 
 		spriteList[thisPlayer]->moveSprite(playerMovement);
@@ -481,6 +492,7 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 	{
 		playerMovement = {0, -playerSpeed * simLength };
 		relativePosition = CollisionHandler().CheckCollisions(spriteList[thisPlayer], playerMovement, levelSpriteList);
+		relativePosition.beneath = CollisionHandler().CheckCollisions(spriteList[thisPlayer], grav, levelSpriteList).beneath;
 		//can only go up or down if on ladder
 		if (relativePosition.onLadder)
 			spriteList[thisPlayer]->moveSprite(playerMovement);
@@ -526,68 +538,104 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 
 	spriteList[thisPlayer]->updateMovement(relativePosition);
 	
-	//enemy
+	//check collisions with enemy
+	relativePosition.hitEnemy = CollisionHandler().CheckCollisions(spriteList[thisPlayer], grav, enemySpriteList).hitEnemy;
+	if (relativePosition.hitEnemy)
+	{
+		SDL_Delay(1000);
+		restartGame();
+	}
+
+	//server controls enemy
 	if (ZMQserver)
-	{	
+	{
+		int moveTo = 550;
+		int moveFrom = 380;
 		Vector2 enemyMovement(0, 0);
-		enemySpriteList[0]->setGravitySpeed(enemySpeed * simLength);
 
-		int enemyX = enemySpriteList[0]->getPos().x;
-		if (enemyX >= 420)
-			canMoveRight = false;
-		if (enemyX <= 180)
-			canMoveRight = true;
-
-		if (enemyX <= 420 && canMoveRight)
+		for (int enemyNo = 0; enemyNo < 2; enemyNo++)
 		{
-			eMovingRight = true;
-			eMovingLeft = false;
-		}
-		else if (enemyX > 180 && !canMoveRight)
-		{
-			eMovingLeft = true;
-			eMovingRight = false;
-		}
+			//sets two and from points for each enemy
+			switch (enemyNo)
+			{
+			case 0:
+				moveTo = 550;
+				moveFrom = 380;
+				break;
+			
+			case 1:
+				moveTo = 550;
+				moveFrom = 50;
+				break;
+			
+			default:
+				moveTo = 0;
+				moveFrom = 0;
+				break;
+			}
 
-		if (eMovingRight)
-		{
-			enemyMovement = { enemySpeed * simLength, 0 };
-			eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[0], enemyMovement, levelSpriteList);
-			enemySpriteList[0]->moveSprite(enemyMovement);
-		}
+			enemySpriteList[enemyNo]->setGravitySpeed(enemySpeed * simLength);
 
-		else if (eMovingLeft)
-		{
-			enemyMovement = { -enemySpeed * simLength, 0 };
-			eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[0], enemyMovement, levelSpriteList);
-			enemySpriteList[0]->moveSprite(enemyMovement);
-		}
+			//move back and forth between two points
+			int enemyX = enemySpriteList[enemyNo]->getPos().x;
+			if (enemyX >= moveTo)
+				canMoveRight[enemyNo] = false;
+			if (enemyX <= moveFrom)
+				canMoveRight[enemyNo] = true;
 
-		else if (eMovingUp)
-		{
-			enemyMovement = { 0, -enemySpeed * simLength };
-			eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[0], enemyMovement, levelSpriteList);
-			//can only go up or down if on ladder
-			if (eRelativePosition.onLadder)
-				enemySpriteList[0]->moveSprite(enemyMovement);
-		}
+			if (enemyX <= moveTo && canMoveRight[enemyNo])
+			{
+				eMovingRight[enemyNo] = true;
+				eMovingLeft[enemyNo] = false;
+			}
+			else if (enemyX > moveFrom && !canMoveRight[enemyNo])
+			{
+				eMovingLeft[enemyNo] = true;
+				eMovingRight[enemyNo] = false;
+			}
 
-		else if (eMovingDown)
-		{
-			enemyMovement = { 0, enemySpeed * simLength };
-			eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[0], enemyMovement, levelSpriteList);
-			if (eRelativePosition.onLadder)
-				enemySpriteList[0]->moveSprite(enemyMovement);
-		}
+			if (eMovingRight[enemyNo])
+			{
+				enemyMovement = { enemySpeed * simLength, 0 };
+				eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[enemyNo], enemyMovement, levelSpriteList);
+				eRelativePosition.beneath = CollisionHandler().CheckCollisions(enemySpriteList[enemyNo], grav, levelSpriteList).beneath;
+				enemySpriteList[enemyNo]->moveSprite(enemyMovement);
+			}
 
-		//not moving
-		else
-		{
-			eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[0], Vector2(0, 0), levelSpriteList);
-		}
+			else if (eMovingLeft[enemyNo])
+			{
+				enemyMovement = { -enemySpeed * simLength, 0 };
+				eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[enemyNo], enemyMovement, levelSpriteList);
+				eRelativePosition.beneath = CollisionHandler().CheckCollisions(enemySpriteList[enemyNo], grav, levelSpriteList).beneath;
+				enemySpriteList[enemyNo]->moveSprite(enemyMovement);
+			}
 
-		enemySpriteList[0]->updateMovement(eRelativePosition);
-		enemySpriteList[0]->animateSprite(0, 2, 7, true);
+			else if (eMovingUp[enemyNo])
+			{
+				enemyMovement = { 0, -enemySpeed * simLength };
+				eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[enemyNo], enemyMovement, levelSpriteList);
+				//can only go up or down if on ladder
+				if (eRelativePosition.onLadder)
+					enemySpriteList[enemyNo]->moveSprite(enemyMovement);
+			}
+
+			else if (eMovingDown[enemyNo])
+			{
+				enemyMovement = { 0, enemySpeed * simLength };
+				eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[enemyNo], enemyMovement, levelSpriteList);
+				if (eRelativePosition.onLadder)
+					enemySpriteList[enemyNo]->moveSprite(enemyMovement);
+			}
+
+			//not moving
+			else
+			{
+				eRelativePosition = CollisionHandler().CheckCollisions(enemySpriteList[enemyNo], grav, levelSpriteList);
+			}
+
+			enemySpriteList[enemyNo]->updateMovement(eRelativePosition);
+		}
+		
 	}
 
 	//animation and sound
@@ -614,6 +662,10 @@ void updateSimulation(double simLength = 0.02) //update simulation with an amoun
 		else
 			spriteList[thisPlayer]->setIdle();
 	}
+
+	//animate enemies
+	enemySpriteList[0]->animateSprite(0, 2, 7, true);
+	enemySpriteList[1]->animateSprite(0, 2, 7, true);
 
 	//score
 	//add to score and remove sprite from level
@@ -746,7 +798,7 @@ void loadPlayers()
 	//---- player 1 end ----//
 
 	//---- player 2 begin ----//
-	rect = { 665, 864, 67, 92 }; 
+	rect = { 665, 849, 67, 92 };
 	spritePosRect = { 0, 0, 67, 92 }; 
 
 	imagePath = "./assets/player2_walk.png"; 
@@ -773,14 +825,14 @@ void loadEnemies()
 	SDL_Rect spritePosRect;
 	std::string imagePath;
 
-	//---- enemy begin ----//
-	rect = { 180, 160, 56, 48 };
+	//---- enemy 1 begin ----//
+	rect = {400, 160, 56, 48 };
 	spritePosRect = { 0, 0, 56, 48 };
 
 	imagePath = "./assets/bee_fly.png";
 
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding enemy sprite...");
-	enemySpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 0.5)));
+	enemySpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 6, 0.5)));
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Enemy sprite added");
 
 	std::string spriteDataPath = "./assets/bee_fly.txt";
@@ -788,7 +840,40 @@ void loadEnemies()
 
 	enemySpriteList[0]->setFacing(false);
 
-	//---- enemy end ----//
+	//---- enemy 1 end ----//
+
+	//---- enemy 2 begin ----//
+	rect = { 50, 660, 56, 48 };
+	spritePosRect = { 0, 0, 56, 48 };
+
+	imagePath = "./assets/bee_fly.png";
+
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding enemy sprite...");
+	enemySpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 6, 0.5)));
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Enemy sprite added");
+
+	spriteDataPath = "./assets/bee_fly.txt";
+	enemySpriteList[1]->populateAnimationData(spriteDataPath);
+
+	enemySpriteList[1]->setFacing(false);
+
+	//---- enemy 3 end ----//
+
+	//background enemy
+	rect = { 30, 130, 57, 45 };
+	spritePosRect = { 0, 0, 114, 90 }; //228, 180 };
+
+	imagePath = "./assets/fly.png";
+
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding enemy sprite...");
+	enemySpriteList.push_back(std::unique_ptr<SpriteHandler>(new SpriteHandler(rect, spritePosRect, imagePath, true, 1, 1)));
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Enemy sprite added");
+
+	spriteDataPath = "./assets/bee_fly.txt";
+	enemySpriteList[2]->populateAnimationData(spriteDataPath);
+
+	enemySpriteList[2]->setFacing(false);
+	enemySpriteList[2]->setFlip(0);
 }
 
 void loadLevel()
@@ -1025,6 +1110,16 @@ void displayScoreboard()
 {
 	SDL_RenderClear(ren);
 
+	SDL_Color theColour = { 255, 255, 255 }; 
+	SDL_Rect messageRect; 
+	std::string theString;
+
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding text...");
+
+	theString = "Highscores:";
+	messageRect = { winWidth/2 - 150, 50, 300, 50 };
+	textListHighScore.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect)));
+	
 	//draw high score list
 	for (auto const& text : textListHighScore)
 	{
@@ -1032,11 +1127,13 @@ void displayScoreboard()
 	}
 	SDL_RenderPresent(ren);
 
-	SDL_Delay(2000);
+	//3 second delay to view scoreboard
+	SDL_Delay(3000);
 }
 
 void restartGame()
 {
+	//show high score list
 	displayScoreboard();
 
 	spriteList.clear();
@@ -1107,24 +1204,23 @@ void loadHighScore()
 		int menuGap = 0;
 		int increment = 50;
 		int j = 1;
+		int i = highScoreList.size() - 1;
 
 		//reverse to make it descending
-		for (int i = highScoreList.size() - 1; i > 0; i-- )
+		for (i; i > 0; i-- )
 		{
-			std::cout << highScoreList[i] << std::endl;
-			theString = std::to_string(j++) + ". " + std::to_string(highScoreList[i]);
-			messageRect = { winWidth/2 - 100, 200 + menuGap, 200, 50 };
-			textListHighScore.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect))); //adds text to list
-			menuGap += increment;
+			//displays top 10
+			if (j <= 10)
+			{
+				std::cout << highScoreList[i] << std::endl;
+				theString = std::to_string(j++) + ". " + std::to_string(highScoreList[i]);
+				messageRect = { winWidth / 2 - 100, 200 + menuGap, 200, 50 };
+				textListHighScore.push_back(std::unique_ptr<TextBox>(new TextBox(theString, theFont, theColour, messageRect))); //adds text to list
+				menuGap += increment;
+			}
 		}
 
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding text...");
-		
-		//top 10 high scores
-		for (int i = 0; i < 10; i++)
-		{
-
-		}
 	}
 	else
 		std::cout << "Unable to open high_score.txt" << std::endl;

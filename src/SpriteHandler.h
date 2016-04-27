@@ -35,6 +35,8 @@ public:
 	SDL_Rect getLastClearPos();
 	int getCurrentFrame();
 	void setCurrentFrame(int frame);
+	void setFlip( int flip);
+	int getFlip();
 
 	~SpriteHandler();
 

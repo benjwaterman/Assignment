@@ -450,6 +450,60 @@ void SpriteHandler::setCurrentFrame(int frame)
 	
 }
 
+void SpriteHandler::setFlip(int flip)
+{
+	if (_startRight)
+	{
+		if (flip == 0)
+		{
+			_flip = SDL_FLIP_NONE;
+		}
+
+		else if (flip == 1)
+		{
+			_flip = SDL_FLIP_HORIZONTAL;
+		}
+	}
+
+	else
+	{
+		if (flip == 0)
+		{
+			_flip = SDL_FLIP_HORIZONTAL;
+		}
+
+		else if (flip == 1)
+		{
+			_flip = SDL_FLIP_NONE;
+		}
+	}
+}
+
+int SpriteHandler::getFlip()
+{
+	if (_startRight)
+	{
+		if (_flip == SDL_FLIP_NONE)
+		{
+			return 0;
+		}
+
+		else
+			return 1;
+	}
+
+	else
+	{
+		if (_flip == SDL_FLIP_HORIZONTAL)
+		{
+			return 0;
+		}
+
+		else
+			return 1;
+	}
+}
+
 SpriteHandler::~SpriteHandler()
 {
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Sprite Destructed(%p)", this);
